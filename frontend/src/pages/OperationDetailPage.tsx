@@ -4,6 +4,7 @@ import {
   ArrowLeft, Cpu, Users, FileText, TrendingUp,
   Smartphone, HardDrive, Usb, Monitor, Plus, Edit3, Archive,
   X, Save, ExternalLink, UserPlus, UserX, Shield, Download, Trash2, Target,
+  CheckCircle2, RefreshCw,
 } from 'lucide-react';
 import { operationsApi, targetsApi, devicesApi, operationUsersApi, usersApi, deploymentTeamsApi } from '@/api/endpoints';
 import type { OperationDashboard, Target as TargetType, Device, User, Document, DeploymentTeam } from '@/types';
@@ -19,32 +20,48 @@ import toast from 'react-hot-toast';
 export default function OperationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const currentUser = useAuthStore((s) => s.user);
+  const isGlobalAdmin = currentUser?.role === 'admin';
+
   const [dashboard, setDashboard] = useState<OperationDashboard | null>(null);
   const [targets, setTargets] = useState<TargetType[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'targets' | 'devices' | 'documents' | 'team' | 'equipes'>('overview');
   const [allDevices, setAllDevices] = useState<Device[]>([]);
+  const [showStatusModal, setShowStatusModal] = useState(false);
 
-  useEffect(() => {
+  // Membros da operação (carregados para verificar se o usuário atual é op_admin)
+  const [opMembers, setOpMembers] = useState<any[]>([]);
+
+  const loadDashboard = () => {
     if (!id) return;
     Promise.all([
       operationsApi.get(id),
       targetsApi.list(id, { page_size: 100 } as any),
       devicesApi.listByOperation(id, { page_size: 100 } as any),
+      operationUsersApi.list(id),
     ])
-      .then(([dashRes, tgtRes, devRes]) => {
+      .then(([dashRes, tgtRes, devRes, membersRes]) => {
         setDashboard(dashRes.data);
         setTargets(tgtRes.data.items);
         setAllDevices(devRes.data.items || []);
+        setOpMembers(membersRes.data || []);
       })
       .catch(() => toast.error('Erro ao carregar operação.'))
       .finally(() => setLoading(false));
-  }, [id]);
+  };
+
+  useEffect(() => { loadDashboard(); }, [id]);
 
   if (loading) return <div className="loading-overlay"><div className="spinner" /> Carregando...</div>;
   if (!dashboard) return <div className="empty-state"><div className="empty-title">Operação não encontrada.</div></div>;
 
   const { operation: op } = dashboard;
+
+  // Verifica se o usuário é op_admin desta operação
+  const isOpAdmin = opMembers.some((m) => m.user_id === currentUser?.id && m.is_op_admin);
+  const canManageOp = isGlobalAdmin || isOpAdmin;
+
 
   const stats = [
     { label: 'Alvos', value: dashboard.total_targets, icon: Users, color: 'var(--color-info)', bg: 'var(--bg-info)' },
@@ -61,6 +78,22 @@ export default function OperationDetailPage() {
 
   return (
     <div>
+      {/* Modal de Status */}
+      {showStatusModal && (
+        <ChangeStatusModal
+          operationId={id!}
+          currentStatus={op.status}
+          onClose={() => setShowStatusModal(false)}
+          onChanged={(newStatus) => {
+            setDashboard((prev) => prev ? {
+              ...prev,
+              operation: { ...prev.operation, status: newStatus as any },
+            } : prev);
+            setShowStatusModal(false);
+          }}
+        />
+      )}
+
       {/* Header */}
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -75,8 +108,8 @@ export default function OperationDetailPage() {
               </span>
             </div>
             <p className="page-subtitle">
-              {op.procedure_number && <span className="font-mono">{op.procedure_number} · </span>}
-              {op.responsible_unit && <span>{op.responsible_unit} · </span>}
+              {op.procedure_number && <span className="font-mono">{op.procedure_number} &middot; </span>}
+              {op.responsible_unit && <span>{op.responsible_unit} &middot; </span>}
               Início: {formatDate(op.start_date)}
             </p>
           </div>
@@ -88,9 +121,11 @@ export default function OperationDetailPage() {
           <Link to={`/operations/${id}/targets/new`} className="btn btn-secondary btn-sm">
             <Plus size={14} /> Novo Alvo
           </Link>
-          <button className="btn btn-ghost btn-sm">
-            <Edit3 size={14} /> Editar
-          </button>
+          {canManageOp && op.status !== 'archived' && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowStatusModal(true)}>
+              <RefreshCw size={14} /> Alterar Status
+            </button>
+          )}
         </div>
       </div>
 
@@ -196,6 +231,144 @@ export default function OperationDetailPage() {
       {activeTab === 'equipes' && (
         <DeploymentTeamsTab operationId={id!} targets={targets} />
       )}
+    </div>
+  );
+}
+
+// ── Modal de Alteração de Status ──────────────────────────────────
+const STATUS_OPTIONS = [
+  {
+    value: 'planning',
+    label: 'Planejamento',
+    desc: 'Operação em fase de organização e planejamento.',
+    icon: Edit3,
+    badge: 'badge-info',
+    color: 'var(--color-info)',
+  },
+  {
+    value: 'active',
+    label: 'Em Andamento',
+    desc: 'Operação em execução ativa.',
+    icon: RefreshCw,
+    badge: 'badge-success',
+    color: 'var(--color-success, #16a34a)',
+  },
+  {
+    value: 'closed',
+    label: 'Encerrada',
+    desc: 'Operação concluída. Dados preservados para consulta.',
+    icon: CheckCircle2,
+    badge: 'badge-neutral',
+    color: 'var(--text-secondary)',
+  },
+] as const;
+
+function ChangeStatusModal({
+  operationId,
+  currentStatus,
+  onClose,
+  onChanged,
+}: {
+  operationId: string;
+  currentStatus: string;
+  onClose: () => void;
+  onChanged: (newStatus: string) => void;
+}) {
+  const [selected, setSelected] = useState(currentStatus);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (selected === currentStatus) { onClose(); return; }
+    setSaving(true);
+    try {
+      await operationsApi.update(operationId, { status: selected });
+      const label = STATUS_OPTIONS.find((s) => s.value === selected)?.label || selected;
+      toast.success(`Status alterado para "${label}" com sucesso!`);
+      onChanged(selected);
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Erro ao alterar status.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+        <div className="modal-header">
+          <div>
+            <div className="modal-title">
+              <RefreshCw size={16} style={{ display: 'inline', marginRight: 8 }} />
+              Alterar Status da Operação
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              Selecione o novo status e confirme.
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={16} /></button>
+        </div>
+
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {STATUS_OPTIONS.map((opt) => {
+            const isSelected = selected === opt.value;
+            const isCurrent = currentStatus === opt.value;
+            const Icon = opt.icon;
+            return (
+              <div
+                key={opt.value}
+                onClick={() => setSelected(opt.value)}
+                style={{
+                  border: `2px solid ${isSelected ? opt.color : 'var(--border)'}`,
+                  borderRadius: 10,
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  background: isSelected ? `color-mix(in srgb, ${opt.color} 8%, transparent)` : 'var(--bg-surface-2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8,
+                  background: isSelected ? `color-mix(in srgb, ${opt.color} 15%, transparent)` : 'var(--bg-surface)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <Icon size={18} style={{ color: isSelected ? opt.color : 'var(--text-muted)' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: isSelected ? opt.color : 'var(--text-primary)' }}>
+                      {opt.label}
+                    </span>
+                    {isCurrent && (
+                      <span className={`badge ${opt.badge}`} style={{ fontSize: 10 }}>atual</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>{opt.desc}</div>
+                </div>
+                {isSelected && (
+                  <CheckCircle2 size={18} style={{ color: opt.color, flexShrink: 0 }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={saving || selected === currentStatus}
+          >
+            {saving
+              ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Salvando…</>
+              : <><Save size={14} /> Confirmar Status</>}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
