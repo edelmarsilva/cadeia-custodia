@@ -43,6 +43,23 @@ def _build_response(template: ReportTemplate) -> ReportTemplateResponse:
     return resp
 
 
+# ── Listar placeholders disponíveis ─────────────────────────────────────────
+@router.get("/report-templates/placeholders")
+async def list_placeholders(current_user: ExpertOrAnalystOrAdmin):
+    """Retorna todos os placeholders suportados pelo motor de geração de laudos."""
+    from app.services.report_generation_service import PLACEHOLDER_MAP, IMAGE_PLACEHOLDER_MAP
+    return {
+        "text_placeholders": [
+            {"placeholder": ph, "field": field}
+            for ph, field in PLACEHOLDER_MAP.items()
+        ],
+        "image_placeholders": [
+            {"placeholder": ph, "category": cat}
+            for ph, cat in IMAGE_PLACEHOLDER_MAP.items()
+        ],
+    }
+
+
 # ── Listar templates ──────────────────────────────────────────────
 @router.get("/report-templates", response_model=list[ReportTemplateResponse])
 async def list_templates(

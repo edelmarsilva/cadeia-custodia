@@ -6,7 +6,7 @@ import {
   X, Save, ExternalLink, UserPlus, UserX, Shield, Download, Trash2, Target,
   CheckCircle2, RefreshCw,
 } from 'lucide-react';
-import { operationsApi, targetsApi, devicesApi, operationUsersApi, usersApi, deploymentTeamsApi } from '@/api/endpoints';
+import { operationsApi, targetsApi, devicesApi, operationUsersApi, usersApi, deploymentTeamsApi, reportTemplatesApi } from '@/api/endpoints';
 import type { OperationDashboard, Target as TargetType, Device, User, Document, DeploymentTeam } from '@/types';
 import { formatDate } from '@/utils/format';
 import {
@@ -539,14 +539,36 @@ function DevicesTab({
   devices: Device[];
   operationId: string;
 }) {
+  const navigate = useNavigate();
   const [devices, setDevices] = useState<Device[]>(initialDevices);
   const [editDevice, setEditDevice] = useState<Device | null>(null);
+  const [templates, setTemplates] = useState<import('@/types').ReportTemplate[]>([]);
+  const [chooseDevice, setChooseDevice] = useState<Device | null>(null);
 
   // Sincroniza se a prop mudar
   useEffect(() => { setDevices(initialDevices); }, [initialDevices]);
 
+  // Carrega modelos de laudo ativos uma única vez
+  useEffect(() => {
+    reportTemplatesApi.list(true)
+      .then((r) => setTemplates(r.data))
+      .catch(() => {}); // silencioso — não bloqueia a aba
+  }, []);
+
   const handleSaved = (updated: Device) => {
     setDevices((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+  };
+
+  const handleGenerateReport = (device: Device) => {
+    if (templates.length === 0) {
+      toast.error('Nenhum modelo de laudo ativo cadastrado. Cadastre um modelo em Perícia → Modelos de Laudo.');
+      return;
+    }
+    if (templates.length === 1) {
+      navigate(`/devices/${device.id}/gerar-laudo?template_id=${templates[0].id}`);
+    } else {
+      setChooseDevice(device);
+    }
   };
 
   return (
@@ -556,6 +578,13 @@ function DevicesTab({
           device={editDevice}
           onClose={() => setEditDevice(null)}
           onSaved={handleSaved}
+        />
+      )}
+      {chooseDevice && (
+        <ChooseTemplateModal
+          device={chooseDevice}
+          templates={templates}
+          onClose={() => setChooseDevice(null)}
         />
       )}
 
@@ -620,6 +649,14 @@ function DevicesTab({
                     <td>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--color-success, #16a34a)', fontSize: 12 }}
+                          onClick={() => handleGenerateReport(d)}
+                          title="Gerar Laudo Pericial"
+                        >
+                          <FileText size={13} /> Gerar Laudo
+                        </button>
+                        <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => setEditDevice(d)}
                           title="Editar dispositivo"
@@ -641,6 +678,94 @@ function DevicesTab({
     </>
   );
 }
+
+// ── Modal de seleção de modelo de laudo ────────────────────────────────
+function ChooseTemplateModal({
+  device,
+  templates,
+  onClose,
+}: {
+  device: Device;
+  templates: import('@/types').ReportTemplate[];
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const [selectedId, setSelectedId] = useState(templates[0]?.id || '');
+
+  const handleGerar = () => {
+    if (!selectedId) return;
+    navigate(`/devices/${device.id}/gerar-laudo?template_id=${selectedId}`);
+    onClose();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+        <div className="modal-header">
+          <div>
+            <div className="modal-title">
+              <FileText size={16} style={{ display: 'inline', marginRight: 8 }} />
+              Selecionar Modelo de Laudo
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              Dispositivo: <strong>{device.evidence_number}</strong>
+              {device.brand && <> &mdash; {device.brand} {device.model}</>}
+            </div>
+          </div>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={16} /></button>
+        </div>
+
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {templates.map((t) => {
+            const isSelected = selectedId === t.id;
+            return (
+              <div
+                key={t.id}
+                onClick={() => setSelectedId(t.id)}
+                style={{
+                  border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--border)'}`,
+                  borderRadius: 10,
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  background: isSelected ? 'rgba(144, 48, 49, 0.06)' : 'var(--bg-surface-2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  transition: 'all 0.15s',
+                }}
+              >
+                <div style={{
+                  width: 34, height: 34, borderRadius: 8,
+                  background: isSelected ? 'rgba(144,48,49,0.12)' : 'var(--bg-surface)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <FileText size={16} style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-muted)' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)' }}>
+                    {t.name}
+                  </div>
+                  {t.description && (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{t.description}</div>
+                  )}
+                </div>
+                {isSelected && <CheckCircle2 size={18} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={handleGerar} disabled={!selectedId}>
+            <FileText size={14} /> Gerar Laudo
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 // ── Aba Equipe ────────────────────────────────────────────────────
 function TeamTab({ operationId }: { operationId: string }) {

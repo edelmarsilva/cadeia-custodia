@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   FileText, ArrowLeft, Wand2, Eye, Download, CheckCircle,
-  ChevronDown, ChevronUp, AlertTriangle, FileCheck,
+  ChevronDown, ChevronUp, AlertTriangle, FileCheck, BookOpen, Copy,
 } from 'lucide-react';
 import { devicesApi, reportTemplatesApi, reportGenerationApi } from '@/api/endpoints';
 import type { Device, ReportTemplate, ReportPreview } from '@/types';
@@ -82,15 +82,43 @@ function PreviewTable({ preview }: { preview: ReportPreview }) {
   );
 }
 
-// ── Página principal ──────────────────────────────────────────────
+// ── Painel de Placeholders ──────────────────────────────────────
+function PlaceholdersPanel({ placeholders }: { placeholders: { text_placeholders: { placeholder: string; field: string }[]; image_placeholders: { placeholder: string; category: string }[] } | null }) {
+  if (!placeholders) return null;
+  return (
+    <div className="card" style={{ padding: 20 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <BookOpen size={16} /> Placeholders Disponíveis
+      </h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {placeholders.text_placeholders.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase' }}>Texto</div>
+            {placeholders.text_placeholders.map((p, i) => (
+              <div key={i} style={{ fontSize: 12, padding: '4px 0', display: 'flex', justifyContent: 'space-between' }}>
+                <code>{p.placeholder}</code>
+                <span style={{ color: 'var(--text-muted)' }}>{p.field}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Página principal ────────────────────────────────────────────────────────────────
 export default function GenerateReportPage() {
   const { id: deviceId } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
   const [device, setDevice] = useState<Device | null>(null);
   const [templates, setTemplates] = useState<ReportTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [placeholders, setPlaceholders] = useState<{ text_placeholders: { placeholder: string; field: string }[]; image_placeholders: { placeholder: string; category: string }[] } | null>(null);
+  const [showPlaceholders, setShowPlaceholders] = useState(false);
 
   // Formulário
   const [templateId, setTemplateId] = useState('');
@@ -118,7 +146,17 @@ export default function GenerateReportPage() {
         ]);
         setDevice(dev);
         setTemplates(tpls);
-        if (tpls.length > 0) setTemplateId(tpls[0].id);
+        // Pré-seleciona template passado via query param
+        const paramTemplateId = searchParams.get('template_id');
+        if (paramTemplateId && tpls.some((t) => t.id === paramTemplateId)) {
+          setTemplateId(paramTemplateId);
+        } else if (tpls.length > 0) {
+          setTemplateId(tpls[0].id);
+        }
+        // Carrega placeholders em background
+        reportTemplatesApi.placeholders()
+          .then((r) => setPlaceholders(r.data))
+          .catch(() => {});
       } catch {
         toast.error('Erro ao carregar dados.');
       } finally {
@@ -417,6 +455,91 @@ export default function GenerateReportPage() {
                 {showPreview ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </div>
               {showPreview && <PreviewTable preview={preview} />}
+            </div>
+          )}
+          {/* Painel de Placeholders */}
+          {placeholders && (
+            <div className="card" style={{ padding: '16px 20px' }}>
+              <div
+                onClick={() => setShowPlaceholders(!showPlaceholders)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  cursor: 'pointer', marginBottom: showPlaceholders ? 16 : 0,
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <BookOpen size={14} /> Placeholders Disponíveis no Template
+                </div>
+                {showPlaceholders ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </div>
+              {showPlaceholders && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Texto ({placeholders.text_placeholders.length})
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 4 }}>
+                      {placeholders.text_placeholders.map((p) => (
+                        <div
+                          key={p.placeholder}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '5px 8px', borderRadius: 6,
+                            background: 'var(--bg-base)',
+                            border: '1px solid var(--border)',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => {
+                            navigator.clipboard.writeText(p.placeholder);
+                            toast.success(`${p.placeholder} copiado!`);
+                          }}
+                          title="Clique para copiar"
+                        >
+                          <code style={{ fontSize: 11, color: 'var(--color-primary)', fontFamily: 'var(--font-mono)', flex: 1 }}>
+                            {p.placeholder}
+                          </code>
+                          <Copy size={10} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Imagem ({placeholders.image_placeholders.length})
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 4 }}>
+                      {placeholders.image_placeholders.map((p) => (
+                        <div
+                          key={p.placeholder}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '5px 8px', borderRadius: 6,
+                            background: 'var(--bg-base)',
+                            border: '1px solid var(--border)',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => {
+                            navigator.clipboard.writeText(p.placeholder);
+                            toast.success(`${p.placeholder} copiado!`);
+                          }}
+                          title="Clique para copiar"
+                        >
+                          <code style={{ fontSize: 11, color: 'var(--color-accent)', fontFamily: 'var(--font-mono)', flex: 1 }}>
+                            {p.placeholder}
+                          </code>
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{p.category}</span>
+                          <Copy size={10} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-surface-2)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
+                    💡 <strong>Como usar:</strong> Insira os placeholders (ex: <code>{'{{NUMERO_LAUDO}}'}</code>) no seu documento DOCX.
+                    Eles serão substituídos automaticamente pelos dados do dispositivo ao gerar o laudo.
+                    Clique em qualquer placeholder para copiá-lo.
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

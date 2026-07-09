@@ -161,6 +161,8 @@ export const reportTemplatesApi = {
   list: (activeOnly = true) =>
     api.get<ReportTemplate[]>('/report-templates', { params: { active_only: activeOnly } }),
   get: (id: string) => api.get<ReportTemplate>(`/report-templates/${id}`),
+  placeholders: () =>
+    api.get<{ text_placeholders: { placeholder: string; field: string }[]; image_placeholders: { placeholder: string; category: string }[] }>('/report-templates/placeholders'),
   create: (formData: FormData) =>
     api.post<ReportTemplate>('/report-templates', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
