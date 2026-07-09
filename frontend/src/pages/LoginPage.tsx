@@ -46,7 +46,6 @@ export default function LoginPage() {
               width: 200,
               height: 'auto',
               objectFit: 'contain',
-              filter: 'brightness(0) invert(1)',
             }}
           />
           <div style={{ textAlign: 'center' }}>
