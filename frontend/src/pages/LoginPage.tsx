@@ -38,13 +38,20 @@ export default function LoginPage() {
       <div className="login-bg-glow" />
 
       <div className="login-card">
-        <div className="login-logo">
-          <div className="login-logo-icon">
-            <Shield size={26} color="#ffffff" />
-          </div>
-          <div>
+        <div className="login-logo" style={{ flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <img
+            src="/mpac-logo.png"
+            alt="MPAC - Ministério Público do Acre"
+            style={{
+              width: 200,
+              height: 'auto',
+              objectFit: 'contain',
+              filter: 'brightness(0) invert(1)',
+            }}
+          />
+          <div style={{ textAlign: 'center' }}>
             <div className="login-title">Cadeia de Custódia</div>
-            <div className="login-sub">Sistema Forense de Evidências Digitais</div>
+            <div className="login-sub">Sistema Forense de Evidências Digitais • MPAC</div>
           </div>
         </div>
 

@@ -44,14 +44,22 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      {/* Logo */}
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <Shield size={18} color="#ffffff" />
-        </div>
-        <div className="sidebar-logo-text">
-          <div className="sidebar-logo-title">Cadeia de Custódia</div>
-          <div className="sidebar-logo-sub">Sistema Forense</div>
+      {/* Logo MPAC */}
+      <div className="sidebar-logo" style={{ padding: '16px 18px', gap: 0, flexDirection: 'column', alignItems: 'center' }}>
+        <img
+          src="/mpac-logo.png"
+          alt="MPAC - Ministério Público do Acre"
+          style={{
+            width: '100%',
+            maxWidth: 160,
+            height: 'auto',
+            objectFit: 'contain',
+            filter: 'brightness(0) invert(1)',
+            marginBottom: 8,
+          }}
+        />
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 600 }}>
+          Cadeia de Custódia Digital
         </div>
       </div>
 
