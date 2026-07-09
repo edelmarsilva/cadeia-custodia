@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
-from app.core.deps import AdminOnly, CurrentUser
+from app.core.deps import AdminOnly, CurrentUser, require_op_admin_or_global_admin
 from app.db.database import get_async_session
 from app.models.custody_model import CustodyMovement
 from app.models.device_model import Device
@@ -28,6 +28,7 @@ from app.schemas.schemas import (
     OperationUpdate,
     OperationUserAssign,
     OperationUserResponse,
+    SetOpAdminBody,
     UserResponse,
 )
 from app.services import audit_service, storage_service
@@ -189,6 +190,22 @@ async def update_operation(
     op = result.scalar_one_or_none()
     if not op:
         raise HTTPException(status_code=404, detail="Operação não encontrada.")
+
+    # Admin global OU op_admin desta operação podem editar
+    if current_user.get("role") != "admin":
+        user_uuid = uuid.UUID(current_user["sub"])
+        op_admin_entry = (await session.execute(
+            select(OperationUser).where(
+                OperationUser.operation_id == operation_id,
+                OperationUser.user_id == user_uuid,
+                OperationUser.is_op_admin.is_(True),
+            )
+        )).scalar_one_or_none()
+        if not op_admin_entry:
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas o administrador global ou o administrador desta operação pode editar seus dados.",
+            )
 
     old_data = {"status": op.status, "name": op.name}
     for field, value in body.model_dump(exclude_unset=True).items():
@@ -398,10 +415,29 @@ async def list_operation_users(
 async def assign_user_to_operation(
     operation_id: uuid.UUID,
     body: OperationUserAssign,
-    current_user: AdminOnly,
+    current_user: CurrentUser,
     session: AsyncSession = Depends(get_async_session),
 ):
-    """Atribui um usuário à operação (admin only)."""
+    """Atribui um usuário à operação.
+
+    Permitido para: admin global e op_admin da operação.
+    """
+    # Verifica se o solicitante tem permissão (admin global ou op_admin)
+    if current_user.get("role") != "admin":
+        requester_uuid = uuid.UUID(current_user["sub"])
+        op_admin_entry = (await session.execute(
+            select(OperationUser).where(
+                OperationUser.operation_id == operation_id,
+                OperationUser.user_id == requester_uuid,
+                OperationUser.is_op_admin.is_(True),
+            )
+        )).scalar_one_or_none()
+        if not op_admin_entry:
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas o administrador global ou o administrador desta operação pode atribuir membros.",
+            )
+
     # Verifica operação
     op = (await session.execute(
         select(Operation).where(Operation.id == operation_id, Operation.deleted_at.is_(None))
@@ -431,6 +467,7 @@ async def assign_user_to_operation(
         operation_id=operation_id,
         user_id=body.user_id,
         assigned_by=assigner_uuid,
+        is_op_admin=body.is_op_admin,
     )
     session.add(entry)
     await session.flush()
@@ -440,7 +477,7 @@ async def assign_user_to_operation(
         action="operation_user_assigned",
         entity_type="operation",
         entity_id=str(operation_id),
-        description=f"Usuário {user.username} atribuído à operação {op.name}",
+        description=f"Usuário {user.username} atribuído à operação {op.name}{'(op_admin)' if body.is_op_admin else ''}",
         user_id=assigner_uuid,
         username=current_user["username"],
     )
@@ -455,10 +492,30 @@ async def assign_user_to_operation(
 async def remove_user_from_operation(
     operation_id: uuid.UUID,
     user_id: uuid.UUID,
-    current_user: AdminOnly,
+    current_user: CurrentUser,
     session: AsyncSession = Depends(get_async_session),
 ):
-    """Remove atribuição de um usuário à operação (admin only)."""
+    """Remove atribuição de um usuário da operação.
+
+    Permitido para: admin global e op_admin da operação.
+    Op_admin não pode remover a si mesmo se for o único op_admin.
+    """
+    # Verifica permissão
+    if current_user.get("role") != "admin":
+        requester_uuid = uuid.UUID(current_user["sub"])
+        op_admin_entry = (await session.execute(
+            select(OperationUser).where(
+                OperationUser.operation_id == operation_id,
+                OperationUser.user_id == requester_uuid,
+                OperationUser.is_op_admin.is_(True),
+            )
+        )).scalar_one_or_none()
+        if not op_admin_entry:
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas o administrador global ou o administrador desta operação pode remover membros.",
+            )
+
     entry = (await session.execute(
         select(OperationUser).where(
             OperationUser.operation_id == operation_id,
@@ -467,6 +524,21 @@ async def remove_user_from_operation(
     )).scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=404, detail="Atribuição não encontrada.")
+
+    # Impede que o único op_admin se remova
+    if entry.is_op_admin:
+        other_admins_count = (await session.execute(
+            select(func.count()).select_from(OperationUser).where(
+                OperationUser.operation_id == operation_id,
+                OperationUser.is_op_admin.is_(True),
+                OperationUser.user_id != user_id,
+            )
+        )).scalar_one()
+        if other_admins_count == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Não é possível remover o único administrador da operação. Promova outro membro primeiro.",
+            )
 
     await session.delete(entry)
     await audit_service.log_action(
@@ -479,3 +551,79 @@ async def remove_user_from_operation(
         username=current_user["username"],
     )
     return MessageResponse(message="Usuário removido da operação com sucesso.")
+
+
+@router.patch("/{operation_id}/users/{user_id}/set-op-admin", response_model=OperationUserResponse)
+async def set_operation_admin(
+    operation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    body: SetOpAdminBody,
+    current_user: CurrentUser,
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Promove ou rebaixa um membro como administrador desta operação.
+
+    Permitido para: admin global e op_admin da operação.
+    """
+    # Verifica permissão
+    if current_user.get("role") != "admin":
+        requester_uuid = uuid.UUID(current_user["sub"])
+        op_admin_entry = (await session.execute(
+            select(OperationUser).where(
+                OperationUser.operation_id == operation_id,
+                OperationUser.user_id == requester_uuid,
+                OperationUser.is_op_admin.is_(True),
+            )
+        )).scalar_one_or_none()
+        if not op_admin_entry:
+            raise HTTPException(
+                status_code=403,
+                detail="Apenas o administrador global ou o administrador desta operação pode alterar permissões.",
+            )
+
+    entry = (await session.execute(
+        select(OperationUser).where(
+            OperationUser.operation_id == operation_id,
+            OperationUser.user_id == user_id,
+        ).options(selectinload(OperationUser.user))
+    )).scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado nesta operação.")
+
+    # Impede que o único op_admin se rebaixe
+    if entry.is_op_admin and not body.is_op_admin:
+        other_admins_count = (await session.execute(
+            select(func.count()).select_from(OperationUser).where(
+                OperationUser.operation_id == operation_id,
+                OperationUser.is_op_admin.is_(True),
+                OperationUser.user_id != user_id,
+            )
+        )).scalar_one()
+        if other_admins_count == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Não é possível rebaixar o único administrador da operação. Promova outro membro primeiro.",
+            )
+
+    old_value = entry.is_op_admin
+    entry.is_op_admin = body.is_op_admin
+
+    action_label = "promovido a administrador" if body.is_op_admin else "rebaixado de administrador"
+    await audit_service.log_action(
+        session,
+        action="operation_user_admin_changed",
+        entity_type="operation",
+        entity_id=str(operation_id),
+        description=f"Usuário {entry.user.username if entry.user else user_id} {action_label} na operação {operation_id}",
+        old_value={"is_op_admin": old_value},
+        new_value={"is_op_admin": body.is_op_admin},
+        user_id=uuid.UUID(current_user["sub"]),
+        username=current_user["username"],
+    )
+    await session.flush()
+    await session.refresh(entry)
+    r = OperationUserResponse.model_validate(entry)
+    if entry.user:
+        r.user = UserResponse.model_validate(entry.user)
+    return r
+

@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +40,10 @@ class OperationUser(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    is_op_admin: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false",
+        comment="Se True, este usuário é administrador desta operação específica"
+    )
 
     # Relationships
     operation: Mapped["Operation"] = relationship(  # type: ignore[name-defined]
@@ -53,4 +57,5 @@ class OperationUser(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<OperationUser op={self.operation_id} user={self.user_id}>"
+        role_tag = " [OP_ADMIN]" if self.is_op_admin else ""
+        return f"<OperationUser op={self.operation_id} user={self.user_id}{role_tag}>"

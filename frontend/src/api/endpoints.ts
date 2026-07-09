@@ -45,14 +45,17 @@ export const operationsApi = {
   deleteDocument: (documentId: string) => api.delete(`/operations/documents/${documentId}`),
 };
 
-// ── Operation Users (Team) ────────────────────────────────────
+// ── Operation Users (Team) ────────────────────────────
 export const operationUsersApi = {
   list: (operationId: string) =>
     api.get<any[]>(`/operations/${operationId}/users`),
-  assign: (operationId: string, userId: string) =>
-    api.post<any>(`/operations/${operationId}/users`, { user_id: userId }),
+  assign: (operationId: string, userId: string, isOpAdmin = false) =>
+    api.post<any>(`/operations/${operationId}/users`, { user_id: userId, is_op_admin: isOpAdmin }),
   remove: (operationId: string, userId: string) =>
     api.delete(`/operations/${operationId}/users/${userId}`),
+  /** Promove ou rebaixa um membro como administrador da operação. */
+  setOpAdmin: (operationId: string, userId: string, isOpAdmin: boolean) =>
+    api.patch<any>(`/operations/${operationId}/users/${userId}/set-op-admin`, { is_op_admin: isOpAdmin }),
 };
 
 // ── Targets ──────────────────────────────────────────────────

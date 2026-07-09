@@ -472,13 +472,15 @@ function DevicesTab({
 // ── Aba Equipe ────────────────────────────────────────────────────
 function TeamTab({ operationId }: { operationId: string }) {
   const currentUser = useAuthStore((s) => s.user);
-  const isAdmin = currentUser?.role === 'admin';
+  const isGlobalAdmin = currentUser?.role === 'admin';
 
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [togglingAdmin, setTogglingAdmin] = useState<string | null>(null);
 
   const loadMembers = () => {
+    setLoading(true);
     operationUsersApi.list(operationId)
       .then((r) => setMembers(r.data))
       .catch(() => toast.error('Erro ao carregar equipe.'))
@@ -486,6 +488,12 @@ function TeamTab({ operationId }: { operationId: string }) {
   };
 
   useEffect(() => { loadMembers(); }, [operationId]);
+
+  // Verifica se o usuário atual é op_admin desta operação
+  const isOpAdmin = members.some(
+    (m) => m.user_id === currentUser?.id && m.is_op_admin
+  );
+  const canManage = isGlobalAdmin || isOpAdmin;
 
   const handleRemove = async (userId: string, name: string) => {
     if (!confirm(`Remover ${name} da operação?`)) return;
@@ -495,6 +503,27 @@ function TeamTab({ operationId }: { operationId: string }) {
       loadMembers();
     } catch (err: any) {
       toast.error(err.response?.data?.detail || 'Erro ao remover usuário.');
+    }
+  };
+
+  const handleToggleOpAdmin = async (m: any) => {
+    const newValue = !m.is_op_admin;
+    const action = newValue ? 'promover' : 'rebaixar';
+    const name = m.user?.full_name || 'usuário';
+    if (!confirm(
+      newValue
+        ? `Promover ${name} a Administrador desta operação? Ele poderá adicionar/remover membros e editar dados da operação.`
+        : `Remover privilégios de Administrador de ${name}?`
+    )) return;
+    setTogglingAdmin(m.user_id);
+    try {
+      await operationUsersApi.setOpAdmin(operationId, m.user_id, newValue);
+      toast.success(`${name} ${newValue ? 'promovido a Administrador' : 'rebaixado a membro'} desta operação.`);
+      loadMembers();
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || `Erro ao ${action} usuário.`);
+    } finally {
+      setTogglingAdmin(null);
     }
   };
 
@@ -509,8 +538,9 @@ function TeamTab({ operationId }: { operationId: string }) {
         <AddMemberModal
           operationId={operationId}
           currentMembers={members.map((m) => m.user_id)}
+          canGrantOpAdmin={isGlobalAdmin}
           onClose={() => setShowModal(false)}
-          onAdded={() => { setLoading(true); loadMembers(); }}
+          onAdded={() => { loadMembers(); }}
         />
       )}
 
@@ -523,7 +553,7 @@ function TeamTab({ operationId }: { operationId: string }) {
             </div>
             <div className="card-subtitle">{members.length} membro{members.length !== 1 ? 's' : ''} atribuído{members.length !== 1 ? 's' : ''}</div>
           </div>
-          {isAdmin && (
+          {canManage && (
             <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
               <UserPlus size={14} /> Adicionar Membro
             </button>
@@ -537,7 +567,7 @@ function TeamTab({ operationId }: { operationId: string }) {
             <Users size={40} className="empty-icon" />
             <div className="empty-title">Nenhum membro atribuído</div>
             <div className="empty-desc">
-              {isAdmin ? 'Adicione membros para dar acesso à operação.' : 'Nenhum membro atribuído ainda.'}
+              {canManage ? 'Adicione membros para dar acesso à operação.' : 'Nenhum membro atribuído ainda.'}
             </div>
           </div>
         ) : (
@@ -550,15 +580,28 @@ function TeamTab({ operationId }: { operationId: string }) {
                   <th>Unidade</th>
                   <th>Matrícula</th>
                   <th>Atribuído em</th>
-                  {isAdmin && <th style={{ textAlign: 'right' }}>Ações</th>}
+                  {canManage && <th style={{ textAlign: 'right' }}>Ações</th>}
                 </tr>
               </thead>
               <tbody>
                 {members.map((m) => (
                   <tr key={m.id}>
                     <td>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{m.user?.full_name || '—'}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{m.user?.username || '—'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{m.user?.full_name || '—'}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>@{m.user?.username || '—'}</div>
+                        </div>
+                        {m.is_op_admin && (
+                          <span
+                            className="badge badge-danger"
+                            style={{ fontSize: 10, padding: '2px 6px', display: 'flex', alignItems: 'center', gap: 3 }}
+                            title="Administrador desta Operação"
+                          >
+                            <Shield size={9} /> Admin Op
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <span className={`badge ${ROLE_BADGE[m.user?.role] || 'badge-neutral'}`}>
@@ -568,9 +611,24 @@ function TeamTab({ operationId }: { operationId: string }) {
                     <td style={{ fontSize: 13 }}>{m.user?.unit || '—'}</td>
                     <td className="font-mono" style={{ fontSize: 12 }}>{m.user?.badge_number || '—'}</td>
                     <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formatDate(m.assigned_at)}</td>
-                    {isAdmin && (
+                    {canManage && (
                       <td>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                          {/* Só o admin global pode promover/rebaixar op_admin */}
+                          {isGlobalAdmin && (
+                            <button
+                              className={`btn btn-ghost btn-sm ${m.is_op_admin ? '' : ''}`}
+                              style={{ color: m.is_op_admin ? 'var(--color-warning)' : 'var(--color-primary)', fontSize: 12 }}
+                              onClick={() => handleToggleOpAdmin(m)}
+                              disabled={togglingAdmin === m.user_id}
+                              title={m.is_op_admin ? 'Remover privilégios de Admin da Operação' : 'Promover a Admin da Operação'}
+                            >
+                              {togglingAdmin === m.user_id
+                                ? <span className="spinner" style={{ width: 12, height: 12 }} />
+                                : <Shield size={12} />}
+                              {m.is_op_admin ? 'Rebaixar' : 'Tornar Admin'}
+                            </button>
+                          )}
                           <button
                             className="btn btn-ghost btn-sm"
                             style={{ color: 'var(--color-danger)' }}
@@ -597,16 +655,19 @@ function TeamTab({ operationId }: { operationId: string }) {
 function AddMemberModal({
   operationId,
   currentMembers,
+  canGrantOpAdmin,
   onClose,
   onAdded,
 }: {
   operationId: string;
   currentMembers: string[];
+  canGrantOpAdmin: boolean;
   onClose: () => void;
   onAdded: () => void;
 }) {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedId, setSelectedId] = useState('');
+  const [isOpAdmin, setIsOpAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -623,8 +684,9 @@ function AddMemberModal({
     if (!selectedId) return toast.error('Selecione um usuário.');
     setSaving(true);
     try {
-      await operationUsersApi.assign(operationId, selectedId);
-      toast.success('Usuário adicionado à equipe!');
+      await operationUsersApi.assign(operationId, selectedId, isOpAdmin);
+      const userName = available.find((u) => u.id === selectedId)?.full_name || 'Usuário';
+      toast.success(`${userName} adicionado à equipe${isOpAdmin ? ' como Administrador da Operação' : ''}!`);
       onAdded();
       onClose();
     } catch (err: any) {
@@ -654,23 +716,62 @@ function AddMemberModal({
                 Todos os usuários ativos já estão na equipe.
               </div>
             ) : (
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Selecione o usuário *</label>
-                <select
-                  className="form-select"
-                  value={selectedId}
-                  onChange={(e) => setSelectedId(e.target.value)}
-                  required
-                  autoFocus
-                >
-                  <option value="">— Escolha um usuário —</option>
-                  {available.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.full_name} (@{u.username}) — {ROLE_LABELS[u.role] || u.role}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <>
+                <div className="form-group">
+                  <label className="form-label">Selecione o usuário *</label>
+                  <select
+                    className="form-select"
+                    value={selectedId}
+                    onChange={(e) => setSelectedId(e.target.value)}
+                    required
+                    autoFocus
+                  >
+                    <option value="">— Escolha um usuário —</option>
+                    {available.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.full_name} (@{u.username}) — {ROLE_LABELS[u.role] || u.role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Opção de Admin da Operação — visivel apenas para admin global */}
+                {canGrantOpAdmin && (
+                  <div
+                    style={{
+                      background: isOpAdmin ? 'rgba(220, 38, 38, 0.05)' : 'var(--bg-surface-2)',
+                      border: `1px solid ${isOpAdmin ? 'rgba(220,38,38,0.2)' : 'var(--border)'}`,
+                      borderRadius: 10,
+                      padding: '12px 14px',
+                      marginTop: 8,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      transition: 'all 0.2s',
+                    }}
+                    onClick={() => setIsOpAdmin((v) => !v)}
+                  >
+                    <input
+                      type="checkbox"
+                      id="is-op-admin-cb"
+                      checked={isOpAdmin}
+                      onChange={(e) => setIsOpAdmin(e.target.checked)}
+                      style={{ marginTop: 2, accentColor: 'var(--color-danger)' }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13 }}>
+                        <Shield size={13} style={{ color: isOpAdmin ? 'var(--color-danger)' : 'var(--text-muted)' }} />
+                        Administrador da Operação
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3, lineHeight: 1.5 }}>
+                        O usuário poderá adicionar/remover membros, editar dados da operação e gerenciar todos os seus dados.
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -679,7 +780,7 @@ function AddMemberModal({
             <button type="submit" className="btn btn-primary" disabled={saving || available.length === 0}>
               {saving
                 ? <><span className="spinner" style={{ width: 14, height: 14 }} /> Adicionando…</>
-                : <><UserPlus size={14} /> Adicionar</>}
+                : <><UserPlus size={14} /> Adicionar{isOpAdmin ? ' como Admin' : ''}</>}
             </button>
           </div>
         </form>

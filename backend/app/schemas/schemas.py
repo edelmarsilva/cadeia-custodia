@@ -314,9 +314,10 @@ class AuditLogResponse(BaseModel):
     ip_address: str | None
 
 
-# ── Operation Users ─────────────────────────────────────────────
+# ── Operation Users ──────────────────────────────────────
 class OperationUserAssign(BaseModel):
     user_id: uuid.UUID
+    is_op_admin: bool = False
 
 
 class OperationUserResponse(BaseModel):
@@ -327,9 +328,14 @@ class OperationUserResponse(BaseModel):
     user_id: uuid.UUID
     assigned_at: datetime
     assigned_by: uuid.UUID | None
+    is_op_admin: bool = False
 
     # Nested user info (populated via joinedload)
     user: "UserResponse | None" = None
+
+
+class SetOpAdminBody(BaseModel):
+    is_op_admin: bool
 
 
 # ── Report Template ────────────────────────────────────────────────
