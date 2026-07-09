@@ -92,80 +92,11 @@ async def create_target(
     return TargetResponse.model_validate(target)
 
 
-@router.get("/targets/{target_id}", response_model=TargetResponse)
-async def get_target(
-    target_id: uuid.UUID,
-    current_user: CurrentUser,
-    session: AsyncSession = Depends(get_async_session),
-):
-    result = await session.execute(
-        select(Target).where(Target.id == target_id, Target.deleted_at.is_(None))
-    )
-    target = result.scalar_one_or_none()
-    if not target:
-        raise HTTPException(status_code=404, detail="Alvo não encontrado.")
-    return TargetResponse.model_validate(target)
-
-
-@router.patch("/targets/{target_id}", response_model=TargetResponse)
-async def update_target(
-    target_id: uuid.UUID,
-    body: TargetUpdate,
-    current_user: CurrentUser,
-    session: AsyncSession = Depends(get_async_session),
-):
-    result = await session.execute(
-        select(Target).where(Target.id == target_id, Target.deleted_at.is_(None))
-    )
-    target = result.scalar_one_or_none()
-    if not target:
-        raise HTTPException(status_code=404, detail="Alvo não encontrado.")
-
-    old_data = {"full_name": target.full_name}
-    for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(target, field, value)
-
-    await audit_service.log_action(
-        session,
-        action="target_updated",
-        entity_type="target",
-        entity_id=str(target_id),
-        old_value=old_data,
-        new_value=body.model_dump(exclude_unset=True),
-        user_id=uuid.UUID(current_user["sub"]),
-        username=current_user["username"],
-    )
-    await session.refresh(target)
-    return TargetResponse.model_validate(target)
-
-
-@router.delete("/targets/{target_id}", response_model=MessageResponse)
-async def delete_target(
-    target_id: uuid.UUID,
-    current_user: CurrentUser,
-    session: AsyncSession = Depends(get_async_session),
-):
-    result = await session.execute(
-        select(Target).where(Target.id == target_id, Target.deleted_at.is_(None))
-    )
-    target = result.scalar_one_or_none()
-    if not target:
-        raise HTTPException(status_code=404, detail="Alvo não encontrado.")
-
-    target.soft_delete()
-    await audit_service.log_action(
-        session,
-        action="target_deleted",
-        entity_type="target",
-        entity_id=str(target_id),
-        description=f"Alvo '{target.full_name}' removido (soft delete)",
-        user_id=uuid.UUID(current_user["sub"]),
-        username=current_user["username"],
-    )
-    return MessageResponse(message="Alvo removido com sucesso.")
-
-
 # ── Pesquisa Global de Alvos ──────────────────────────────────────
+# IMPORTANTE: estas rotas estáticas (/targets/search, /targets/history/search)
+# DEVEM ficar ANTES das rotas com parâmetro dinâmico (/targets/{target_id}),
+# caso contrário o FastAPI irá capturar "search" e "history" como target_id
+# e retornar 422 Unprocessable Entity.
 
 @router.get("/targets/search", response_model=PaginatedResponse[TargetSearchResult])
 async def search_targets(
@@ -329,6 +260,81 @@ async def search_target_history(
     ]
 
 
+# ── CRUD por ID (dinâmico — DEVE vir APÓS as rotas estáticas) ────────
+
+@router.get("/targets/{target_id}", response_model=TargetResponse)
+async def get_target(
+    target_id: uuid.UUID,
+    current_user: CurrentUser,
+    session: AsyncSession = Depends(get_async_session),
+):
+    result = await session.execute(
+        select(Target).where(Target.id == target_id, Target.deleted_at.is_(None))
+    )
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Alvo não encontrado.")
+    return TargetResponse.model_validate(target)
+
+
+@router.patch("/targets/{target_id}", response_model=TargetResponse)
+async def update_target(
+    target_id: uuid.UUID,
+    body: TargetUpdate,
+    current_user: CurrentUser,
+    session: AsyncSession = Depends(get_async_session),
+):
+    result = await session.execute(
+        select(Target).where(Target.id == target_id, Target.deleted_at.is_(None))
+    )
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Alvo não encontrado.")
+
+    old_data = {"full_name": target.full_name}
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(target, field, value)
+
+    await audit_service.log_action(
+        session,
+        action="target_updated",
+        entity_type="target",
+        entity_id=str(target_id),
+        old_value=old_data,
+        new_value=body.model_dump(exclude_unset=True),
+        user_id=uuid.UUID(current_user["sub"]),
+        username=current_user["username"],
+    )
+    await session.refresh(target)
+    return TargetResponse.model_validate(target)
+
+
+@router.delete("/targets/{target_id}", response_model=MessageResponse)
+async def delete_target(
+    target_id: uuid.UUID,
+    current_user: CurrentUser,
+    session: AsyncSession = Depends(get_async_session),
+):
+    result = await session.execute(
+        select(Target).where(Target.id == target_id, Target.deleted_at.is_(None))
+    )
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Alvo não encontrado.")
+
+    target.soft_delete()
+    await audit_service.log_action(
+        session,
+        action="target_deleted",
+        entity_type="target",
+        entity_id=str(target_id),
+        description=f"Alvo '{target.full_name}' removido (soft delete)",
+        user_id=uuid.UUID(current_user["sub"]),
+        username=current_user["username"],
+    )
+    return MessageResponse(message="Alvo removido com sucesso.")
+
+
 @router.get("/targets/{target_id}/history", response_model=list[TargetHistoryResult])
 async def get_target_history(
     target_id: uuid.UUID,
@@ -382,4 +388,3 @@ async def get_target_history(
         )
         for t, op in result.all()
     ]
-

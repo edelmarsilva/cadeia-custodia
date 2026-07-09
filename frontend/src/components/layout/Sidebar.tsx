@@ -47,7 +47,7 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">
-          <Shield size={18} color="#0a0e1a" />
+          <Shield size={18} color="#ffffff" />
         </div>
         <div className="sidebar-logo-text">
           <div className="sidebar-logo-title">Cadeia de Custódia</div>
@@ -84,7 +84,7 @@ export default function Sidebar() {
                 fontSize: 13, fontWeight: 500, cursor: 'pointer',
                 transition: 'var(--transition)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-surface-2)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
             >
               <Gavel size={18} style={{ color: 'var(--color-primary)' }} />

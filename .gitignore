@@ -40,6 +40,7 @@ yarn-error.log*
 frontend/dist/
 frontend/build/
 frontend/out/
+*.tsbuildinfo
 
 # OS files
 .DS_Store

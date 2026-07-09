@@ -40,7 +40,7 @@ export default function LoginPage() {
       <div className="login-card">
         <div className="login-logo">
           <div className="login-logo-icon">
-            <Shield size={26} color="#0a0e1a" />
+            <Shield size={26} color="#ffffff" />
           </div>
           <div>
             <div className="login-title">Cadeia de Custódia</div>
