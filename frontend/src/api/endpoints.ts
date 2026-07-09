@@ -120,12 +120,26 @@ export const reportsApi = {
     api.patch<ExpertReport>(`/reports/${reportId}`, data),
 };
 
-// ── Hashes ───────────────────────────────────────────────────
+// ── Hashes ────────────────────────────────────────────────────
 export const hashesApi = {
   list: (deviceId: string) =>
     api.get<IntegrityHash[]>(`/devices/${deviceId}/hashes`),
   register: (deviceId: string, data: object) =>
     api.post<IntegrityHash>(`/devices/${deviceId}/hashes`, data),
+  /** Verifica se um hash já existe em outro dispositivo. */
+  check: (params: { md5?: string; sha1?: string; sha256?: string; exclude_device_id?: string }) =>
+    api.get<{
+      found: boolean;
+      conflict?: {
+        device_id: string;
+        evidence_number: string;
+        device_type: string;
+        brand: string | null;
+        model: string | null;
+        hash_type: string;
+        hash_value: string;
+      };
+    }>('/hashes/check', { params }),
 };
 
 // ── Audit ────────────────────────────────────────────────────
