@@ -74,15 +74,16 @@ frontend/
 | **Dashboard** | `/` | `analyst` | Painel geral com métricas do sistema |
 | **Operações** | `/operations` | `analyst` | Listagem e busca de operações |
 | **Nova Operação** | `/operations/new` | `admin` | Formulário de criação de operação |
-| **Detalhe da Operação** | `/operations/:id` | `analyst` | Dashboard da operação: alvos, métricas, documentos |
-| **Detalhe do Alvo** | `/targets/:id` | `analyst` | Dados do alvo e seus dispositivos |
+| **Detalhe da Operação** | `/operations/:id` | `analyst` | Dashboard da operação: alvos, métricas, documentos, equipes |
+| **Detalhe do Alvo** | `/targets/:id` | `analyst` | Dados do alvo, suas fotos, histórico e seus dispositivos |
 | **Novo Alvo** | `/operations/:id/targets/new` | `custody` | Formulário de cadastro de alvo |
-| **Detalhe do Dispositivo** | `/devices/:id` | `analyst` | Ficha completa: custódia, fotos, laudos, hashes |
+| **Detalhe do Dispositivo** | `/devices/:id` | `analyst` | Ficha completa: custódia (com impressão PDF), fotos, documentos, hashes |
 | **Novo Dispositivo** | `/targets/:id/devices/new` | `custody` | Formulário de cadastro de dispositivo |
 | **Movimentação de Custódia** | `/devices/:id/custody/new` | `custody` | Registrar nova movimentação |
-| **Gerar Laudo** | `/devices/:id/generate-report` | `expert` | Geração de laudo a partir de template |
-| **Laudos Gerados** | `/devices/:id/generated-reports` | `expert` | Lista de laudos gerados do dispositivo |
-| **Templates de Laudo** | `/report-templates` | `expert` | Gerenciar templates DOCX |
+| **Gerar Documento** | `/devices/:id/gerar-documento`, `/operations/:id/gerar-documento`, `/targets/:id/gerar-documento` | `expert` | Geração de documento a partir de template (DOCX/PDF) |
+| **Modelos de Documento** | `/pericia/templates` | `expert` | Gerenciar templates DOCX |
+| **Histórico de Documentos** | `/pericia/historico` | `expert` | Lista de laudos e documentos gerados do sistema |
+| **Relatórios Estatísticos** | `/relatorios/estatisticos` | `analyst` | Visualização estatística geral do sistema (com filtro por ano) e por operação |
 | **Auditoria** | `/audit` | `auditor` | Log imutável de todas as ações |
 | **Usuários** | `/users` | `admin` | Gerenciar usuários e papéis |
 | **Novo/Editar Usuário** | `/users/new`, `/users/:id/edit` | `admin` | Formulário de usuário |

@@ -371,3 +371,31 @@ Formatos aceitos: `image/jpeg`, `image/png`, `image/webp` · Tamanho máximo: 10
 | `rg` | string | Filtro por RG (parcial) |
 | `nickname` | string | Filtro por apelido/vulgo |
 | `limit` | int | Máx. de resultados (padrão: 50) |
+
+---
+
+### 📊 Estatísticas — `/api/v1/stats` e `/api/v1/operations/{id}/stats`
+
+> **Papel mínimo**: `admin`, `auditor` (para estatísticas gerais) ou membros da operação (para estatísticas por operação)
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET` | `/stats/system` | Obter estatísticas do sistema completo (operações por status, dispositivos, logs) |
+| `GET` | `/operations/{operation_id}/stats` | Obter estatísticas de uma operação específica |
+
+**Parâmetros (GET /stats/system)**:
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `year` | int | Filtra dados de operações iniciadas no ano especificado |
+
+---
+
+### 🗑 Exclusão de Documentos — `/api/v1/reports/{report_id}`
+
+> **Papel mínimo**: `expert` (apenas se for o criador do laudo/documento) ou `admin`
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `DELETE` | `/reports/{report_id}` | Realiza soft delete do laudo e remove o arquivo no MinIO |
+

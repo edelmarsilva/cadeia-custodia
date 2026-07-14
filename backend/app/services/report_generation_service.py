@@ -29,33 +29,91 @@ from app.models.target_model import Target
 
 logger = logging.getLogger(__name__)
 
-# ── Mapa de placeholders ──────────────────────────────────────────
+# ── Mapa de placeholders ─────────────────────────────────────────────
 PLACEHOLDER_MAP = {
+    # ── Documento / Laudo ─────────────────────────────────────────
     "{{NUMERO_LAUDO}}": "report_number",
+    "{{NUMERO_DOCUMENTO}}": "report_number",
+    "{{DATA_EMISSAO}}": "emission_date",
+    "{{PERITO}}": "expert_name",
+    "{{RESPONSAVEL}}": "expert_name",
+    "{{OBSERVACOES}}": "observations",
+    # ── Operação ─────────────────────────────────────────────────
     "{{OPERACAO}}": "operation_name",
+    "{{NOME_OPERACAO}}": "operation_name",
+    "{{NUMERO_PROCEDIMENTO}}": "procedure_number",
+    "{{PROCEDIMENTO}}": "procedure_number",
+    "{{UNIDADE_RESPONSAVEL}}": "responsible_unit",
+    "{{DATA_INICIO_OPERACAO}}": "start_date",
+    "{{DATA_ENCERRAMENTO_OPERACAO}}": "end_date",
+    "{{STATUS_OPERACAO}}": "operation_status",
+    "{{TOTAL_ALVOS}}": "total_targets",
+    "{{TOTAL_DISPOSITIVOS}}": "total_devices",
+    # ── Alvo ──────────────────────────────────────────────────────
     "{{ALVO}}": "target_name",
+    "{{NOME_ALVO}}": "target_name",
     "{{CPF_ALVO}}": "target_cpf",
+    "{{CPF}}": "target_cpf",
+    "{{RG_ALVO}}": "target_rg",
+    "{{RG}}": "target_rg",
+    "{{APELIDO_ALVO}}": "target_nickname",
+    "{{APELIDO}}": "target_nickname",
+    "{{DATA_NASCIMENTO}}": "target_birth_date",
+    "{{ENDERECO_ALVO}}": "target_address",
+    "{{ENDERECO}}": "target_address",
+    "{{NOME_SOCIAL}}": "target_social_name",
+    "{{TIPO_PESSOA}}": "target_person_type",
+    "{{OBSERVACOES_ALVO}}": "target_observations",
+    # ── Dispositivo ───────────────────────────────────────────────
     "{{DISPOSITIVO}}": "device_type",
+    "{{TIPO_DISPOSITIVO}}": "device_type",
     "{{MARCA}}": "brand",
     "{{MODELO}}": "model",
-    "{{IMEI}}": "imei",
-    "{{SERIAL}}": "serial_number",
     "{{NUMERO_EVIDENCIA}}": "evidence_number",
+    "{{EVIDENCIA}}": "evidence_number",
     "{{NUMERO_LACRE}}": "seal_number",
+    "{{LACRE}}": "seal_number",
     "{{COR}}": "color",
     "{{DATA_APREENSAO}}": "seizure_date",
     "{{LOCAL_APREENSAO}}": "seizure_location",
-    "{{DATA_ANALISE}}": "analysis_start_date",
-    "{{DATA_EMISSAO}}": "emission_date",
-    "{{PERITO}}": "expert_name",
+    "{{OBSERVACOES_APREENSAO}}": "seizure_observations",
+    "{{STATUS_DISPOSITIVO}}": "device_status",
+    # ── Dados técnicos do dispositivo ────────────────────────────────
+    "{{IMEI}}": "imei",
+    "{{IMEI1}}": "imei",
+    "{{IMEI2}}": "imei2",
+    "{{ICCID}}": "iccid",
+    "{{TELEFONE}}": "phone_number",
+    "{{SERIAL}}": "serial_number",
+    "{{NUMERO_SERIE}}": "serial_number",
+    "{{SISTEMA_OPERACIONAL}}": "os",
+    "{{SO}}": "os",
+    "{{CAPACIDADE}}": "storage_capacity",
+    "{{ARMAZENAMENTO}}": "storage_capacity",
+    "{{MEMORIA_RAM}}": "ram",
+    "{{RAM}}": "ram",
+    "{{PROCESSADOR}}": "processor",
+    "{{CPU}}": "processor",
+    "{{INTERFACE}}": "interface",
+    # ── Hashes de integridade ──────────────────────────────────────
     "{{HASH_MD5}}": "hash_md5",
     "{{HASH_SHA1}}": "hash_sha1",
     "{{HASH_SHA256}}": "hash_sha256",
-    "{{SISTEMA_OPERACIONAL}}": "os",
-    "{{CAPACIDADE}}": "storage_capacity",
-    "{{NUMERO_PROCEDIMENTO}}": "procedure_number",
-    "{{OBSERVACOES}}": "observations",
     "{{ARQUIVO_EXTRACAO}}": "source_file",
+    "{{ARQUIVO_ORIGEM}}": "source_file",
+    # ── Custódia ────────────────────────────────────────────────────
+    "{{DATA_ANALISE}}": "analysis_start_date",
+    "{{DATA_INICIO_ANALISE}}": "analysis_start_date",
+    "{{DATA_FIM_ANALISE}}": "analysis_end_date",
+    "{{SETOR_ORIGEM}}": "custody_origin",
+    "{{SETOR_DESTINO}}": "custody_destination",
+    "{{RESPONSAVEL_CUSTODIA}}": "custody_responsible",
+    "{{TIPO_MOVIMENTACAO}}": "custody_movement_type",
+    "{{RAZAO_MOVIMENTACAO}}": "custody_reason",
+    "{{TOTAL_MOVIMENTACOES}}": "total_movements",
+    # ── Contagens ───────────────────────────────────────────────────
+    "{{TOTAL_FOTOS}}": "photos_count",
+    "{{QTDE_FOTOS}}": "photos_count",
 }
 
 # Placeholders de imagem — mapeados por categoria de foto
@@ -144,7 +202,7 @@ async def build_placeholder_context(
         return str(d)
 
     context: dict[str, Any] = {
-        # Laudo
+        # Laudo / Documento
         "report_number": report_number,
         "expert_name": expert_name or "",
         "emission_date": fmt_date(emission_date) or "",
@@ -153,6 +211,7 @@ async def build_placeholder_context(
         "evidence_number": device.evidence_number or "",
         "seal_number": device.seal_number or "",
         "device_type": device.device_type or "",
+        "device_status": device.status or "",
         "brand": device.brand or "",
         "model": device.model or "",
         "serial_number": device.serial_number or "",
@@ -160,18 +219,35 @@ async def build_placeholder_context(
         "seizure_date": fmt_date(device.seizure_date) or "",
         "seizure_location": device.seizure_location or "",
         "seizure_observations": device.seizure_observations or "",
-        # Device extra_data (smartphone fields)
+        # Device extra_data (smartphone, tablet, etc.)
         "imei": extra.get("imei") or extra.get("imei1") or "",
+        "imei2": extra.get("imei2") or "",
+        "iccid": extra.get("iccid") or "",
+        "phone_number": extra.get("phone_number") or "",
         "os": extra.get("os") or extra.get("operating_system") or "",
         "storage_capacity": extra.get("storage_capacity") or extra.get("capacity") or "",
         "ram": extra.get("ram") or "",
         "processor": extra.get("processor") or "",
+        "interface": extra.get("interface") or "",
         # Target
         "target_name": target.full_name if target else "",
         "target_cpf": target.cpf if target else "",
+        "target_rg": target.rg if target else "",
+        "target_nickname": target.nickname if target else "",
+        "target_birth_date": fmt_date(target.birth_date) if target else "",
+        "target_address": target.address if target else "",
+        "target_social_name": target.social_name if target else "",
+        "target_person_type": ("Pessoa Física" if target and target.person_type == "individual" else "Pessoa Jurídica") if target else "",
+        "target_observations": target.observations if target else "",
         # Operation
         "operation_name": operation.name if operation else "",
         "procedure_number": operation.procedure_number if operation else "",
+        "responsible_unit": operation.responsible_unit if operation else "",
+        "start_date": fmt_date(operation.start_date) if operation else "",
+        "end_date": fmt_date(operation.end_date) if operation else "",
+        "operation_status": operation.status if operation else "",
+        "total_targets": "",
+        "total_devices": "",
         # Hashes
         "hash_md5": latest_hash.md5 if latest_hash else "",
         "hash_sha1": latest_hash.sha1 if latest_hash else "",
@@ -181,12 +257,222 @@ async def build_placeholder_context(
         "analysis_start_date": (
             fmt_date(analysis_movement.movement_date) if analysis_movement else ""
         ),
+        "analysis_end_date": "",
+        "custody_origin": "",
+        "custody_destination": "",
+        "custody_responsible": "",
+        "custody_movement_type": "",
+        "custody_reason": "",
+        "total_movements": "",
         # Photos
         "photos_count": len(photos),
         "_photos": photos,  # lista interna para inserção de imagens
         "_device": device,
     }
 
+    # Preenche dados de custódia a partir de todos os movimentos
+    all_custody_result = await session.execute(
+        select(CustodyMovement)
+        .where(CustodyMovement.device_id == device_id)
+        .order_by(CustodyMovement.movement_date.asc())
+    )
+    all_movements: list[CustodyMovement] = list(all_custody_result.scalars().all())
+    context["total_movements"] = str(len(all_movements))
+
+    analysis_end = next((m for m in reversed(all_movements) if m.movement_type == "analysis_end"), None)
+    if analysis_end:
+        context["analysis_end_date"] = fmt_date(analysis_end.movement_date) or ""
+
+    last_movement = all_movements[-1] if all_movements else None
+    if last_movement:
+        context["custody_origin"] = last_movement.origin_sector or ""
+        context["custody_destination"] = last_movement.destination_sector or ""
+        context["custody_responsible"] = last_movement.responsible_name or ""
+        context["custody_movement_type"] = last_movement.movement_type or ""
+        context["custody_reason"] = last_movement.reason or ""
+
+    return context
+
+
+# ── Contexto para Operação ────────────────────────────────────────
+
+async def build_operation_context(
+    session: AsyncSession,
+    operation_id: uuid.UUID,
+    report_number: str,
+    expert_name: str | None = None,
+    emission_date: date | None = None,
+    observations: str | None = None,
+) -> dict[str, Any]:
+    """Monta o contexto de substituição de placeholders a partir de uma Operação."""
+    from app.models.target_model import Target
+    from app.models.device_model import Device
+    from sqlalchemy import func
+
+    # Operation
+    op_result = await session.execute(
+        select(Operation).where(Operation.id == operation_id, Operation.deleted_at.is_(None))
+    )
+    operation: Operation | None = op_result.scalar_one_or_none()
+    if not operation:
+        raise ValueError(f"Operação {operation_id} não encontrada.")
+
+    # Contagem de alvos e dispositivos
+    targets_count = (await session.execute(
+        select(func.count()).select_from(Target).where(
+            Target.operation_id == operation_id,
+            Target.deleted_at.is_(None),
+        )
+    )).scalar_one()
+
+    devices_count = (await session.execute(
+        select(func.count()).select_from(Device).where(
+            Device.operation_id == operation_id,
+            Device.deleted_at.is_(None),
+        )
+    )).scalar_one()
+
+    def fmt_date(d: Any) -> str | None:
+        if d is None:
+            return None
+        if isinstance(d, date):
+            return d.strftime("%d/%m/%Y")
+        return str(d)
+
+    context: dict[str, Any] = {
+        # Documento
+        "report_number": report_number,
+        "expert_name": expert_name or "",
+        "emission_date": fmt_date(emission_date) or "",
+        "observations": observations or "",
+        # Operação
+        "operation_name": operation.name or "",
+        "procedure_number": operation.procedure_number or "",
+        "responsible_unit": operation.responsible_unit or "",
+        "start_date": fmt_date(operation.start_date) or "",
+        "end_date": fmt_date(operation.end_date) or "",
+        "operation_status": operation.status or "",
+        "total_targets": str(targets_count),
+        "total_devices": str(devices_count),
+        # Campos de dispositivo — deixados vazios para templates genéricos
+        "evidence_number": "",
+        "seal_number": "",
+        "device_type": "",
+        "brand": "",
+        "model": "",
+        "serial_number": "",
+        "color": "",
+        "seizure_date": "",
+        "seizure_location": "",
+        "seizure_observations": "",
+        "imei": "",
+        "os": "",
+        "storage_capacity": "",
+        "ram": "",
+        "processor": "",
+        "target_name": "",
+        "target_cpf": "",
+        "hash_md5": "",
+        "hash_sha1": "",
+        "hash_sha256": "",
+        "source_file": "",
+        "analysis_start_date": "",
+        "photos_count": 0,
+        "_photos": [],
+    }
+    return context
+
+
+# ── Contexto para Alvo ────────────────────────────────────────────
+
+async def build_target_context(
+    session: AsyncSession,
+    target_id: uuid.UUID,
+    report_number: str,
+    expert_name: str | None = None,
+    emission_date: date | None = None,
+    observations: str | None = None,
+) -> dict[str, Any]:
+    """Monta o contexto de substituição de placeholders a partir de um Alvo."""
+    from app.models.device_model import Device
+    from sqlalchemy import func
+
+    # Target
+    target_result = await session.execute(
+        select(Target).where(Target.id == target_id, Target.deleted_at.is_(None))
+    )
+    target: Target | None = target_result.scalar_one_or_none()
+    if not target:
+        raise ValueError(f"Alvo {target_id} não encontrado.")
+
+    # Operation
+    operation: Operation | None = None
+    if target.operation_id:
+        op_result = await session.execute(
+            select(Operation).where(
+                Operation.id == target.operation_id, Operation.deleted_at.is_(None)
+            )
+        )
+        operation = op_result.scalar_one_or_none()
+
+    # Dispositivos do alvo
+    devices_count = (await session.execute(
+        select(func.count()).select_from(Device).where(
+            Device.target_id == target_id,
+            Device.deleted_at.is_(None),
+        )
+    )).scalar_one()
+
+    def fmt_date(d: Any) -> str | None:
+        if d is None:
+            return None
+        if isinstance(d, date):
+            return d.strftime("%d/%m/%Y")
+        return str(d)
+
+    context: dict[str, Any] = {
+        # Documento
+        "report_number": report_number,
+        "expert_name": expert_name or "",
+        "emission_date": fmt_date(emission_date) or "",
+        "observations": observations or "",
+        # Alvo
+        "target_name": target.full_name or "",
+        "target_cpf": target.cpf or "",
+        "target_rg": target.rg or "",
+        "target_nickname": target.nickname or "",
+        "target_birth_date": fmt_date(target.birth_date) if hasattr(target, 'birth_date') else "",
+        "target_address": target.address if hasattr(target, 'address') else "",
+        "total_devices": str(devices_count),
+        # Operação
+        "operation_name": operation.name if operation else "",
+        "procedure_number": operation.procedure_number if operation else "",
+        "responsible_unit": operation.responsible_unit if operation else "",
+        "start_date": fmt_date(operation.start_date) if operation else "",
+        # Campos de dispositivo — deixados vazios
+        "evidence_number": "",
+        "seal_number": "",
+        "device_type": "",
+        "brand": "",
+        "model": "",
+        "serial_number": "",
+        "color": "",
+        "seizure_date": "",
+        "seizure_location": "",
+        "seizure_observations": "",
+        "imei": "",
+        "os": "",
+        "storage_capacity": "",
+        "ram": "",
+        "processor": "",
+        "hash_md5": "",
+        "hash_sha1": "",
+        "hash_sha256": "",
+        "source_file": "",
+        "analysis_start_date": "",
+        "photos_count": 0,
+        "_photos": [],
+    }
     return context
 
 

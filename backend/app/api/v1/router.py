@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     operations,
     report_generation,
     report_templates,
+    statistics,
     target_media,
     targets,
     users,
@@ -29,4 +30,5 @@ api_router.include_router(report_templates.router)
 api_router.include_router(report_generation.router)
 api_router.include_router(deployment_teams.router)
 api_router.include_router(target_media.router)
+api_router.include_router(statistics.router)
 

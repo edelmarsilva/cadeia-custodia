@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Camera, FileText, Hash, Link2, Shield,
   Plus, CheckCircle, Clock, X, Upload, AlertTriangle,
-  Download, ZoomIn, ChevronLeft, ChevronRight, Trash2, Wand2,
+  Download, ZoomIn, ChevronLeft, ChevronRight, Trash2, Wand2, Printer,
 } from 'lucide-react';
 import { devicesApi, custodyApi, photosApi, reportsApi, hashesApi, targetsApi, reportGenerationApi } from '@/api/endpoints';
 import type { Device, Target, TimelineData, DevicePhoto, ExpertReport, IntegrityHash, GeneratedReport } from '@/types';
@@ -368,6 +368,17 @@ export default function DeviceDetailPage() {
     }
   };
 
+  const handleDeleteReport = async (reportId: string, reportNumber: string) => {
+    if (!confirm(`Excluir o documento "${reportNumber}"? Esta ação é irreversível.`)) return;
+    try {
+      await reportsApi.delete(reportId);
+      setReports((prev) => prev.filter((r) => r.id !== reportId));
+      toast.success('Documento excluído.');
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'Erro ao excluir documento.');
+    }
+  };
+
   const loadDevice = async () => {
     if (!id) return;
     try {
@@ -448,10 +459,10 @@ export default function DeviceDetailPage() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           {['admin', 'expert', 'analyst'].includes(currentUserAuth?.role || '') && (
             <Link
-              to={`/devices/${id}/gerar-laudo`}
+              to={`/devices/${id}/gerar-documento`}
               className="btn btn-primary btn-sm"
             >
-              <Wand2 size={14} /> Gerar Laudo
+              <FileText size={14} /> Gerar Documento
             </Link>
           )}
           <Link to={`/devices/${id}/custody/new`} className="btn btn-secondary btn-sm">
@@ -466,7 +477,7 @@ export default function DeviceDetailPage() {
           { key: 'overview', label: 'Visão Geral' },
           { key: 'custody', label: `Custódia (${timeline?.timeline?.filter(s => s.completed).length ?? 0})` },
           { key: 'photos', label: `Fotos (${photos.length})` },
-          { key: 'reports', label: `Laudos (${reports.length})` },
+          { key: 'reports', label: `Documentos (${reports.length})` },
           { key: 'hashes', label: `Hashes (${hashes.length})` },
         ] as const).map((t) => (
           <div key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key as any)}>
@@ -537,9 +548,58 @@ export default function DeviceDetailPage() {
               <div className="card-title">Cadeia de Custódia</div>
               <div className="card-subtitle">Histórico completo e imutável de movimentações</div>
             </div>
-            <Link to={`/devices/${id}/custody/new`} className="btn btn-primary btn-sm">
-              <Plus size={14} /> Registrar
-            </Link>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                title="Imprimir / Salvar como PDF"
+                onClick={() => {
+                  const printWindow = window.open('', '_blank');
+                  if (!printWindow) return;
+                  const movements = timeline?.timeline?.flatMap(s => s.events) ?? [];
+                  const html = `<!DOCTYPE html><html lang="pt-BR"><head>
+                    <meta charset="UTF-8"/>
+                    <title>Cadeia de Custódia — ${device.evidence_number}</title>
+                    <style>
+                      body{font-family:Arial,sans-serif;color:#111;padding:32px;max-width:800px;margin:0 auto}
+                      h1{font-size:18px;border-bottom:2px solid #333;padding-bottom:8px;margin-bottom:16px}
+                      .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:24px;font-size:13px}
+                      .meta span{color:#555}
+                      .event{border-left:3px solid #2563eb;padding:10px 16px;margin-bottom:12px}
+                      .event .date{font-size:11px;color:#555;margin-bottom:4px}
+                      .event .step{font-weight:bold;font-size:13px;margin-bottom:4px}
+                      .event .detail{font-size:12px;color:#444}
+                      @media print{body{padding:16px}}
+                    </style>
+                  </head><body>
+                    <h1>Cadeia de Custódia — Evidência ${device.evidence_number}</h1>
+                    <div class="meta">
+                      <div><span>Dispositivo:</span> ${device.brand || ''} ${device.model || ''}</div>
+                      <div><span>Lacre:</span> ${device.seal_number || '—'}</div>
+                      <div><span>Serial:</span> ${device.serial_number || '—'}</div>
+                      <div><span>Data de Emissão:</span> ${new Date().toLocaleDateString('pt-BR')}</div>
+                    </div>
+                    ${movements.map(ev => `<div class="event">
+                      <div class="date">${new Date(ev.date).toLocaleString('pt-BR')}</div>
+                      <div class="detail">${ev.responsible ? `Responsável: ${ev.responsible}` : ''}</div>
+                      ${ev.origin || ev.destination ? `<div class="detail">De: ${ev.origin || '—'} → Para: ${ev.destination || '—'}</div>` : ''}
+                      ${ev.observation ? `<div class="detail">Obs: ${ev.observation}</div>` : ''}
+                    </div>`).join('')}
+                    <div style="margin-top:48px;border-top:1px solid #999;padding-top:12px;font-size:11px;color:#666">
+                      Documento gerado em ${new Date().toLocaleString('pt-BR')} — Sistema de Cadeia de Custódia
+                    </div>
+                  </body></html>`;
+                  printWindow.document.write(html);
+                  printWindow.document.close();
+                  printWindow.focus();
+                  printWindow.print();
+                }}
+              >
+                <Printer size={14} /> Imprimir
+              </button>
+              <Link to={`/devices/${id}/custody/new`} className="btn btn-primary btn-sm">
+                <Plus size={14} /> Registrar
+              </Link>
+            </div>
           </div>
           {!timeline?.timeline?.some(s => s.completed) ? (
             <div className="empty-state">
@@ -761,54 +821,69 @@ export default function DeviceDetailPage() {
         </div>
       )}
 
-      {/* Reports */}
       {activeTab === 'reports' && (
         <div className="card">
           <div className="card-header">
-            <div className="card-title">Laudos Periciais</div>
+            <div className="card-title">Documentos</div>
             <button className="btn btn-primary btn-sm" onClick={() => setShowReportModal(true)}>
-              <FileText size={14} /> Novo Laudo
+              <FileText size={14} /> Novo Documento
             </button>
           </div>
           {reports.length === 0 ? (
             <div className="empty-state">
               <FileText size={40} className="empty-icon" />
-              <div className="empty-title">Nenhum laudo emitido</div>
-              <div className="empty-desc">Clique em "Novo Laudo" para criar um laudo pericial.</div>
+              <div className="empty-title">Nenhum documento emitido</div>
+              <div className="empty-desc">Clique em "Novo Documento" para adicionar um documento pericial.</div>
             </div>
           ) : (
             <div className="table-wrapper">
               <table>
                 <thead>
-                  <tr><th>Nº Laudo</th><th>Título</th><th>Perito</th><th>Status</th><th>Emissão</th><th>Versão</th><th>Arquivo</th></tr>
+                  <tr><th>Nº Documento</th><th>Título</th><th>Perito</th><th>Status</th><th>Emissão</th><th>Versão</th><th>Arquivo</th><th></th></tr>
                 </thead>
                 <tbody>
-                  {reports.map((r) => (
-                    <tr key={r.id}>
-                      <td className="font-mono">{r.report_number}</td>
-                      <td>{r.title}</td>
-                      <td>{r.expert_name || '—'}</td>
-                      <td><span className={`badge ${REPORT_STATUS_BADGE[r.status as keyof typeof REPORT_STATUS_BADGE] || 'badge-neutral'}`}>{REPORT_STATUS_LABELS[r.status as keyof typeof REPORT_STATUS_LABELS] || r.status}</span></td>
-                      <td className="text-sm">{formatDate(r.emission_date)}</td>
-                      <td className="font-mono">v{r.version}</td>
-                      <td>
-                        {r.file_url ? (
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            style={{ gap: 4 }}
-                            disabled={downloadingFile === (r.file_name || r.id)}
-                            onClick={() => handleDownload(r.file_url!, r.file_name || 'laudo.pdf')}
-                          >
-                            {downloadingFile === (r.file_name || r.id)
-                              ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Baixando…</>
-                              : <><Download size={12} /> PDF</>}
-                          </button>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {reports.map((r) => {
+                    const isOwner = currentUserAuth?.id === r.created_by || currentUserAuth?.id === r.expert_user_id;
+                    const canDelete = isAdmin || isOwner;
+                    return (
+                      <tr key={r.id}>
+                        <td className="font-mono">{r.report_number}</td>
+                        <td>{r.title}</td>
+                        <td>{r.expert_name || '—'}</td>
+                        <td><span className={`badge ${REPORT_STATUS_BADGE[r.status as keyof typeof REPORT_STATUS_BADGE] || 'badge-neutral'}`}>{REPORT_STATUS_LABELS[r.status as keyof typeof REPORT_STATUS_LABELS] || r.status}</span></td>
+                        <td className="text-sm">{formatDate(r.emission_date)}</td>
+                        <td className="font-mono">v{r.version}</td>
+                        <td>
+                          {r.file_url ? (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              style={{ gap: 4 }}
+                              disabled={downloadingFile === (r.file_name || r.id)}
+                              onClick={() => handleDownload(r.file_url!, r.file_name || 'documento.pdf')}
+                            >
+                              {downloadingFile === (r.file_name || r.id)
+                                ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Baixando…</>
+                                : <><Download size={12} /> PDF</>}
+                            </button>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          {canDelete && (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ color: 'var(--color-danger, #ef4444)', padding: '4px 8px' }}
+                              title={isOwner ? 'Excluir documento' : 'Excluir (admin)'}
+                              onClick={() => handleDeleteReport(r.id, r.report_number)}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

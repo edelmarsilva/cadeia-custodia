@@ -2,9 +2,9 @@ import api from './client';
 import type {
   AuditLog, CustodyMovement, DeploymentTeam, DeploymentTeamMember,
   DeploymentTeamTarget, Device, DevicePhoto, Document,
-  ExpertReport, GeneratedReport, IntegrityHash, Operation, OperationDashboard,
-  PaginatedResponse, ReportPreview, ReportTemplate, Target, TargetHistoryResult,
-  TargetPhoto, TargetSearchResult, TimelineData, User,
+  ExpertReport, GeneratedReport, GeneratedDocument, IntegrityHash, Operation, OperationDashboard,
+  OperationDocumentPreview, OperationStats, PaginatedResponse, ReportPreview, ReportTemplate, SystemStats,
+  Target, TargetDocumentPreview, TargetHistoryResult, TargetPhoto, TargetSearchResult, TimelineData, User,
 } from '@/types';
 
 // ── Auth ─────────────────────────────────────────────────────
@@ -121,6 +121,8 @@ export const reportsApi = {
   },
   update: (reportId: string, data: object) =>
     api.patch<ExpertReport>(`/reports/${reportId}`, data),
+  delete: (reportId: string) =>
+    api.delete(`/reports/${reportId}`),
 };
 
 // ── Hashes ────────────────────────────────────────────────────
@@ -194,6 +196,24 @@ export const reportGenerationApi = {
     api.get<{ url: string; file_name: string }>(`/generated-reports/${reportId}/download/docx`),
   downloadPdf: (reportId: string) =>
     api.get<{ url: string; file_name: string }>(`/generated-reports/${reportId}/download/pdf`),
+  // ── Operação ──────────────────────────────────────────────────
+  previewForOperation: (operationId: string, data: object) =>
+    api.post<OperationDocumentPreview>(`/operations/${operationId}/generate-document/preview`, data),
+  generateForOperation: (operationId: string, data: object) =>
+    api.post<GeneratedDocument>(`/operations/${operationId}/generate-document`, data, {
+      timeout: 300_000,
+    }),
+  listByOperation: (operationId: string) =>
+    api.get<GeneratedDocument[]>(`/operations/${operationId}/generated-documents`),
+  // ── Alvo ──────────────────────────────────────────────────────
+  previewForTarget: (targetId: string, data: object) =>
+    api.post<TargetDocumentPreview>(`/targets/${targetId}/generate-document/preview`, data),
+  generateForTarget: (targetId: string, data: object) =>
+    api.post<GeneratedDocument>(`/targets/${targetId}/generate-document`, data, {
+      timeout: 300_000,
+    }),
+  listByTarget: (targetId: string) =>
+    api.get<GeneratedDocument[]>(`/targets/${targetId}/generated-documents`),
 };
 
 // ── Deployment Teams ──────────────────────────────────────────
@@ -244,4 +264,12 @@ export const targetHistoryApi = {
 export const targetSearchApi = {
   search: (params: { q?: string; cpf?: string; nickname?: string; operation_id?: string; page?: number; page_size?: number }) =>
     api.get<PaginatedResponse<TargetSearchResult>>('/targets/search', { params }),
+};
+
+// ── Statistics ────────────────────────────────────────────────
+export const statsApi = {
+  system: (year?: number | null) =>
+    api.get<SystemStats>('/stats/system', { params: year ? { year } : {} }),
+  operation: (operationId: string) =>
+    api.get<OperationStats>(`/operations/${operationId}/stats`),
 };

@@ -170,6 +170,7 @@ export interface ExpertReport {
   file_url?: string | null;
   version: number;
   observations?: string;
+  created_by?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -287,6 +288,65 @@ export interface ReportPreview {
   observations?: string;
 }
 
+// ── Operation Document Preview ────────────────────────────────────
+export interface OperationDocumentPreview {
+  report_number: string;
+  expert_name?: string;
+  emission_date?: string;
+  operation_name?: string;
+  procedure_number?: string;
+  responsible_unit?: string;
+  start_date?: string;
+  end_date?: string;
+  operation_status?: string;
+  total_targets?: string;
+  total_devices?: string;
+  observations?: string;
+}
+
+// ── Target Document Preview ───────────────────────────────────────
+export interface TargetDocumentPreview {
+  report_number: string;
+  expert_name?: string;
+  emission_date?: string;
+  target_name?: string;
+  target_cpf?: string;
+  target_rg?: string;
+  target_nickname?: string;
+  target_birth_date?: string;
+  target_address?: string;
+  total_devices?: string;
+  operation_name?: string;
+  procedure_number?: string;
+  responsible_unit?: string;
+  observations?: string;
+}
+
+// ── Generated Document (Operation/Target) ────────────────────────
+export interface GeneratedDocument {
+  id: string;
+  template_id?: string;
+  template_version?: string;
+  device_id?: string | null;
+  operation_id?: string;
+  target_id?: string;
+  user_id?: string;
+  source_type?: string;
+  report_number: string;
+  expert_name?: string;
+  emission_date?: string;
+  observations?: string;
+  docx_path?: string;
+  pdf_path?: string;
+  docx_name?: string;
+  pdf_name?: string;
+  placeholder_data?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  docx_url?: string | null;
+  pdf_url?: string | null;
+}
+
 // ── Deployment Teams ──────────────────────────────────────────────
 export interface DeploymentTeamMember {
   id: string;
@@ -369,4 +429,86 @@ export interface PaginatedResponse<T> {
   page: number;
   page_size: number;
   pages: number;
+}
+
+// ── Statistics ────────────────────────────────────────────────────────────
+
+export interface StatCountItem {
+  type?: string;
+  status?: string;
+  count: number;
+}
+
+export interface TopOperation {
+  id: string;
+  name: string;
+  procedure_number?: string;
+  status: string;
+  devices: number;
+  targets: number;
+}
+
+export interface TopTarget {
+  id: string;
+  name: string;
+  cpf?: string;
+  devices: number;
+}
+
+export interface RecentActivity {
+  date: string;
+  type: string;
+  responsible?: string;
+  origin?: string;
+  destination?: string;
+  observation?: string;
+}
+
+export interface SystemStats {
+  generated_at: string;
+  year_filter: number | null;
+  available_years: number[];
+  totals: {
+    operations: number;
+    targets: number;
+    devices: number;
+    custody_movements: number;
+    expert_reports: number;
+    generated_documents: number;
+    users: number;
+    photos: number;
+  };
+  operations_by_status: StatCountItem[];
+  devices_by_type: StatCountItem[];
+  devices_by_status: StatCountItem[];
+  movements_by_type: StatCountItem[];
+  top_operations: TopOperation[];
+  recent_activity: RecentActivity[];
+}
+
+export interface OperationStats {
+  generated_at: string;
+  operation: {
+    id: string;
+    name: string;
+    procedure_number?: string;
+    responsible_unit?: string;
+    status: string;
+    start_date?: string;
+    end_date?: string;
+    description?: string;
+  };
+  totals: {
+    targets: number;
+    devices: number;
+    custody_movements: number;
+    expert_reports: number;
+    generated_documents: number;
+    photos: number;
+  };
+  devices_by_type: StatCountItem[];
+  devices_by_status: StatCountItem[];
+  movements_by_type: StatCountItem[];
+  top_targets: TopTarget[];
+  recent_movements: RecentActivity[];
 }

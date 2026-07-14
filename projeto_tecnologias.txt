@@ -1,0 +1,257 @@
+========================================================================
+SISTEMA DE CADEIA DE CUSTÓDIA DE EVIDÊNCIAS DIGITAIS
+========================================================================
+
+Este documento descreve o propósito do projeto, seus fluxos detalhados de
+funcionamento para fins de validação oficial, manual de usuário detalhando
+os cadastros e interações de entidades, mecanismos de segurança forense, 
+modelo de dados e a infraestrutura tecnológica utilizada.
+
+------------------------------------------------------------------------
+1. VISÃO GERAL DO PROJETO
+------------------------------------------------------------------------
+O sistema foi projetado para gerenciar o ciclo de vida completo de evidências 
+digitais (smartphones, computadores, pendrives, etc.) apreendidas no âmbito de 
+investigações e perícias forenses. O foco central do sistema é garantir os 
+princípios jurídicos e técnicos de integridade, rastreabilidade e imutabilidade.
+
+Principais Recursos de Negócio:
+- Operações: Investigações principais vinculadas a números de procedimentos/inquéritos.
+- Equipes de Deflagração: Divisão de policiais em equipes vinculadas a operações em campo.
+- Alvos: Pessoas físicas ou jurídicas sob investigação em cada operação.
+- Dispositivos (Evidências): Ficha cadastral detalhada da evidência com número de lacre,
+  dados técnicos e geração automática de QR Code único de identificação.
+- Cadeia de Custódia: Histórico imutável de movimentação da evidência (apreensão, 
+  início/fim de análise, devolução ou arquivamento) com opção para imprimir a timeline.
+- Hashes de Integridade: Registro obrigatório de hashes criptográficos (SHA-256 como
+  padrão mínimo forense, MD5 e SHA-1) para comprovar a não alteração da prova.
+- Fotografias: Upload de imagens físicas do dispositivo ou fotos de alvos para 
+  reconhecimento físico.
+- Documentos/Laudos: Emissão e geração automatizada de relatórios em PDF/DOCX 
+  para Dispositivos, Alvos ou Operações com base em templates e placeholders.
+- Estatísticas Avançadas: Painel de relatórios analíticos do sistema com filtros
+  por ano das operações e dados estatísticos individuais de cada operação.
+- Auditoria: Log imutável e persistente de todas as ações de usuários.
+
+------------------------------------------------------------------------
+2. FLUXO DETALHADO DE FUNCIONAMENTO (DOCUMENTO OFICIAL)
+------------------------------------------------------------------------
+Para garantir a admissibilidade jurídica das provas digitais produzidas pelo
+sistema, os fluxos operacionais seguem rígidos protocolos de segurança:
+
+2.1 Autuação da Investigação e Alvos
+1. Criação da Operação: O usuário com permissão cria a Operação informando o número 
+   oficial do procedimento (ex: Inquérito Policial).
+2. Divisão de Equipes de Deflagração: Os policiais são cadastrados e vinculados 
+   a equipes táticas específicas para atuação em campo na operação.
+3. Cadastro dos Alvos: Cada pessoa física ou jurídica alvo de busca e apreensão 
+   é cadastrada sob a operação correspondente. São anexados documentos como CPF,
+   RG e fotos de identificação facial dos alvos (armazenadas em bucket seguro 
+   no MinIO).
+
+2.2 Apreensão e Registro de Dispositivo (Entrada da Custódia)
+1. Cadastro do Dispositivo: Durante a apreensão, a evidência (celular, laptop, 
+   etc.) é cadastrada no sistema. O cadastro exige a inserção do número de lacre
+   físico utilizado na sacola porta-evidência.
+2. Geração do QR Code: O sistema gera automaticamente um QR Code único vinculado
+   à UUID do dispositivo. Este código é impresso e colado na etiqueta física da 
+   evidência, criando o vínculo digital-físico definitivo.
+3. Registro Forense Inicial: São coletados e inseridos os hashes criptográficos
+   iniciais da evidência (SHA-256 obrigatoriamente, além de MD5 ou SHA-1 como
+   auxiliares) para assegurar a inviolabilidade do material periciado.
+
+2.3 Rastreamento Imutável de Movimentações (Trâmite de Custódia)
+1. Registro de Trâmite: Sempre que a evidência física muda de mãos ou de setor 
+   (ex: do Setor de Apreensão para o Laboratório de Perícia), uma nova 
+   movimentação de custódia é obrigatoriamente registrada.
+2. Imutabilidade Absoluta: A tabela de histórico de custódia ("custody_movements") 
+   opera no modo "append-only". A API e as regras do banco de dados proíbem 
+   operações de atualização (UPDATE) ou exclusão (DELETE) neste histórico.
+3. Impressão Física da Cadeia: A qualquer momento, operadores autorizados 
+   podem utilizar o recurso de impressão de custódia para gerar um relatório em
+   PDF da timeline de custódia física da evidência, para ser encartado em autos
+   físicos de inquérito ou processos judiciais.
+
+2.4 Emissão de Documentos e Laudos Técnicos
+1. Escolha de Templates: Peritos utilizam templates padronizados em formato DOCX
+   (armazenados no MinIO) contendo placeholders predefinidos.
+2. Processamento e Geração: O backend processa o template substituindo os 
+   placeholders por metadados reais de Dispositivos, Alvos, Operações e 
+   Movimentações de Custódia.
+3. Controle de Acesso a Exclusões: A fim de evitar perda acidental ou fraudulenta 
+   de relatórios oficiais, apenas o usuário perito que criou o documento ou um 
+   administrador geral possuem privilégios para removê-lo (soft-delete). A 
+   deleção no sistema dispara de forma automatizada o expurgo definitivo do
+   arquivo hospedado no MinIO para resguardar o sigilo da informação.
+
+2.5 Consolidação Analítica e Estatística (Módulo Estatístico)
+1. Visão Macro e Micro: O sistema consolida quantitativamente as métricas de 
+   todas as operações ativas, divididas por status das investigações, tipos de 
+   dispositivos (breakdown quantitativo), e o volume total de trâmites.
+2. Filtros Temporais: É permitida a seleção de anos de referência para análise de 
+   desempenho institucional e geração de relatórios de produtividade específicos.
+
+------------------------------------------------------------------------
+3. MANUAL DO USUÁRIO: CADASTROS E INTERAÇÕES ENTRE ENTIDADES
+------------------------------------------------------------------------
+Esta seção serve como um manual prático, descrevendo cada formulário de cadastro,
+seus campos específicos e as dependências operacionais entre as entidades.
+
+3.1 Cadastros do Sistema
+
+A) Cadastro de Operações (Abertura de Caso)
+O cadastro de uma Operação é o ponto de partida do sistema. Nenhuma evidência 
+ou alvo pode ser registrado de forma isolada; eles precisam obrigatoriamente 
+fazer parte de uma Operação ativa ou em planejamento.
+Campos principais:
+- Nome da Operação: Identificação comum do caso (ex: "Operação Antigravidade").
+- Número do Procedimento: Número de registro formal da polícia ou Ministério 
+  Público (ex: "IPL 123/2026"). É um campo com restrição de unicidade.
+- Descrição: Resumo fático das linhas de investigação (opcional).
+- Unidade Responsável: O setor policial ou administrativo encarregado.
+- Perito/Investigador Responsável: Usuário principal do sistema encarregado.
+- Data de Início e Término: Janela temporal de execução da operação.
+- Status: "Planejamento" (Planning), "Ativo" (Active), "Fechado" (Closed) ou 
+  "Arquivado" (Archived).
+
+B) Cadastro de Alvos (Quem está sob investigação)
+O Alvo representa a pessoa física ou jurídica vinculada à Operação.
+Campos principais:
+- Operação Relacionada: Campo obrigatório selecionável (a operação à qual o alvo pertence).
+- Nome Completo/Razão Social: Identificação oficial da pessoa ou empresa.
+- Nome Social: Nome pelo qual a pessoa se autodeclara (se aplicável).
+- Apelido/Vulgo: Codinome utilizado para busca rápida em campo.
+- Tipo de Pessoa: "Pessoa Física" (Individual) ou "Pessoa Jurídica" (Legal Entity).
+- CPF/CNPJ e RG: Documentos de identificação formal da pessoa ou empresa.
+- Data de Nascimento: Para pessoas físicas.
+- Endereço Completo: Local de residência ou sede.
+- Observações: Comportamentos conhecidos, histórico ou alertas de segurança.
+- Fotos de Identificação: Imagens faciais do alvo para reconhecimento das equipes.
+
+C) Cadastro de Equipes de Deflagração (Agentes em Campo)
+Uma Equipe de Deflagração é um grupo temporário de agentes policiais formado 
+para cumprir mandados em campo (busca, apreensão, prisão) vinculados à Operação.
+Campos principais:
+- Nome da Equipe: Identificação tática (ex: "Equipe Alfa").
+- Operação Relacionada: Operação à qual a equipe está prestando serviço.
+- Líder da Equipe: Policial/usuário responsável pela coordenação direta.
+- Policiais da Equipe: Lista de membros da equipe (selecionados a partir dos 
+  usuários do sistema).
+- Alvos Atribuídos: Lista de alvos daquela operação que esta equipe deverá abordar.
+
+D) Cadastro de Dispositivos (Evidências Eletrônicas)
+O Dispositivo representa a prova digital apreendida. Deve pertencer a uma 
+Operação e, idealmente, estar associado a um Alvo (pessoa com quem o item 
+estava no momento da apreensão).
+Campos principais:
+- Alvo Relacionado: O suspeito de quem a prova foi apreendida (nullable, caso 
+  a propriedade ainda seja desconhecida).
+- Operação: Preenchido automaticamente a partir da operação do alvo.
+- Número da Evidência: ID interno ou código gerado para controle físico.
+- Número do Lacre: Código alfanumérico do lacre físico e inviolável da sacola.
+- Tipo de Dispositivo: Smartphone, Tablet, Notebook, Desktop, SSD, DVR, etc.
+- Marca, Modelo, Cor e Número de Série.
+- Data e Local de Apreensão (ex: "Quarto principal, Residência do Alvo X").
+- Dados Técnicos Adicionais (JSONB): Permite registrar campos variáveis, como 
+  IMEI 1/2, operadora, número do chip (ICCID), capacidade de armazenamento e RAM.
+
+E) Cadastro de Movimentações de Custódia (O Trâmite Imutável)
+Representa a passagem física da evidência de um custodiante para outro.
+Campos principais:
+- Dispositivo: Seleção do item a ser movimentado.
+- Tipo de Movimentação: Apreensão (Seizure), Recepção (Reception), 
+  Transferência (Transfer), Início/Fim de Análise, Devolução ou Arquivamento.
+- Data e Hora do Trâmite.
+- Responsável: Nome legível do agente policial que está recebendo a custódia.
+- Setor de Origem e Setor de Destino.
+- Justificativa/Motivo: Finalidade da movimentação (ex: "Envio para extração forense").
+
+F) Cadastro de Documentos (A Lauda/Relatório Pericial)
+Contém os arquivos PDF/DOCX oficiais emitidos durante o processo.
+Campos principais:
+- Dispositivo/Alvo/Operação: A entidade de origem à qual o documento se vincula.
+- Título do Documento: Ex: "Relatório de Extração de Celular".
+- Número do Laudo: Identificador numérico oficial de fé pública.
+- Perito Emissor e Data de Emissão.
+- Observações Técnicas.
+
+3.2 Como as Entidades se Interagem (O Fluxo de Trabalho no Sistema)
+
+A hierarquia e o relacionamento dos dados seguem o modelo estrutural abaixo:
+
+1. A Operação como Container Principal:
+   A Operação serve como escopo limite. Um policial não pode atribuir um Alvo a 
+   uma Equipe se ambos não pertencerem à mesma Operação. O sistema valida essa 
+   consistência no backend de forma a blindar o processo contra erros de vínculo.
+
+2. A Relação Alvo ➔ Dispositivo:
+   Quando um dispositivo é apreendido em campo, ele é cadastrado associando-o 
+   ao seu respectivo Alvo. Essa interação é fundamental porque, no momento da 
+   geração automatizada de relatórios, o sistema busca os dados do proprietário 
+   (Alvo) e os insere automaticamente como metadados do laudo do dispositivo.
+
+3. O Dispositivo ➔ Cadeia de Custódia (Imutabilidade):
+   O Dispositivo inicia seu histórico com a primeira movimentação do tipo 
+   "Apreensão" (Seizure). A partir daí, cada nova custódia registrada se 
+   soma à timeline. A exclusão de um dispositivo (soft-delete) oculta o 
+   dispositivo das buscas comuns, mas as movimentações de custódia permanecem 
+   gravadas de forma definitiva na tabela imutável do banco de dados, servindo 
+   de histórico forense irrefutável.
+
+4. Geração de Documentos via Placeholders Cruzados:
+   Quando o perito clica em "Gerar Documento", a aplicação extrai informações 
+   cruzadas de toda a árvore de relacionamentos:
+   - Da Operação: nome e procedimento.
+   - Do Alvo: nome, CPF, RG e endereço.
+   - Do Dispositivo: marca, modelo, série, IMEI e capacidade técnica.
+   - Da Custódia: data de apreensão, responsável e local da apreensão.
+   Todos esses dados são fundidos no template DOCX selecionado, gerando um 
+   relatório consistente, livre de erros de digitação manual de dados oficiais.
+
+------------------------------------------------------------------------
+4. ARQUITETURA E TECNOLOGIAS UTILIZADAS
+------------------------------------------------------------------------
+A aplicação é dividida em microsserviços containerizados através do Docker, 
+comunicando-se em uma rede privada isolada.
+
+A) BACKEND (API REST)
+- Linguagem: Python 3.11+
+- Framework: FastAPI (para alta performance, documentação interativa OpenAPI)
+- Servidor ASGI: Uvicorn
+- ORM (Banco de Dados): SQLAlchemy 2.0 (execução 100% assíncrona)
+- Migrações de Banco de Dados: Alembic
+- Processamento de Documentos: python-docx (manipulação de templates DOCX)
+- Autenticação e Segurança: JWT (JSON Web Tokens) com algoritmos de criptografia 
+  assimétrica/simétrica e senhas protegidas com bcrypt (passlib)
+
+B) FRONTEND (SPA)
+- Linguagem: TypeScript
+- Framework: React
+- Ferramenta de Build: Vite
+- Estilização: Vanilla CSS (utilizando CSS Custom Properties para Design System robusto)
+- Gerenciamento de Estado: Zustand (persiste dados de autenticação no localStorage)
+- Cliente HTTP: Axios (com interceptors para injeção de tokens JWT e refresh automático)
+- Ícones: Lucide React
+- Roteamento: React Router DOM v6
+- Notificações: react-hot-toast
+
+C) ARMAZENAMENTO E SEGURANÇA FORENSE
+- Banco de Dados: PostgreSQL 16 (armazenamento persistente relacional)
+- Armazenamento de Objetos (Storage): MinIO (S3-Compatible Object Storage) para 
+  armazenamento de arquivos de laudos, templates e fotos
+- Imutabilidade da Custódia: Restrição a nível de aplicação contra deleção física 
+  ou alteração de dados de movimentações da cadeia de custódia (fluxo append-only)
+- Controle de Acesso (RBAC): 5 papéis de acesso (admin, custody, expert, analyst, 
+  auditor) validando a autorização de cada rota de API
+
+------------------------------------------------------------------------
+5. INFRAESTRUTURA DE DEPLOY
+------------------------------------------------------------------------
+O projeto é orquestrado por meio de Docker Compose, expondo as seguintes portas:
+- Frontend (Nginx): Porta 5173 (Interface Web)
+- Backend (FastAPI): Porta 8000 (API REST / Documentação Swagger em /api/docs)
+- MinIO: Portas 9000 (API S3) e 9001 (Console Administrativo)
+- PostgreSQL: Porta 5432 (Banco de dados relacional)
+
+Desenvolvido para uso institucional em perícia forense digital.
+========================================================================

@@ -197,22 +197,26 @@ Todos os modelos principais herdam combinações dos seguintes mixins:
 
 ---
 
-### `expert_reports` — Laudos Periciais
+### `expert_reports` — Documentos (Laudos Periciais)
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `id` | UUID | Chave primária |
 | `device_id` | UUID (FK → devices) | Dispositivo periciado |
-| `title` | String | Título do laudo |
-| `content` | Text | Conteúdo/resumo do laudo |
-| `file_key` | String | Chave do PDF no MinIO |
-| `file_url` | String | URL de acesso ao PDF |
-| `status` | Enum | `draft`, `review`, `signed`, `archived` |
+| `report_number` | String(100) | Número do laudo/documento (único) |
+| `title` | String(500) | Título do documento |
+| `expert_user_id` | UUID (FK → users) | Perito responsável |
+| `expert_name` | String(255) | Nome do perito |
+| `emission_date` | Date | Data de emissão |
+| `status` | Enum | `drafting`, `review`, `signed`, `cancelled` |
+| `file_path` | String(1000) | Chave do PDF no MinIO (`reports` bucket) |
+| `file_name` | String(500) | Nome original do arquivo PDF |
 | `version` | Integer | Número da versão |
-| `created_by` | UUID (FK → users) | Perito que criou |
-| `signed_by` | UUID (FK → users) | Usuário que assinou |
-| `signed_at` | DateTime | Data de assinatura |
+| `observations` | Text | Observações |
+| `created_by` | UUID (FK → users) | Usuário que inseriu o documento |
 | `created_at` | DateTime | Data de criação |
+| `updated_at` | DateTime | Última atualização |
+| `deleted_at` | DateTime | Exclusão lógica |
 
 ---
 
@@ -288,17 +292,29 @@ Todos os modelos principais herdam combinações dos seguintes mixins:
 
 ---
 
-### `generated_reports` — Laudos Gerados
+### `generated_reports` — Documentos Gerados (v1.2.0)
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `id` | UUID | Chave primária |
-| `device_id` | UUID (FK → devices) | Dispositivo analisado |
 | `template_id` | UUID (FK → report_templates) | Template utilizado |
-| `file_key` | String | Chave do PDF gerado |
-| `status` | Enum | `pending`, `generated`, `failed` |
-| `generated_by` | UUID (FK → users) | Usuário que gerou |
-| `created_at` | DateTime | Data de geração |
+| `template_version` | String(50) | Versão do template |
+| `device_id` | UUID (FK → devices) | Dispositivo analisado (nullable) |
+| `target_id` | UUID (FK → targets) | Alvo analisado (nullable) |
+| `source_type` | String(20) | Tipo de origem: `device`, `operation`, `target` |
+| `operation_id` | UUID (FK → operations) | Operação vinculada (nullable) |
+| `user_id` | UUID (FK → users) | Usuário que gerou |
+| `report_number` | String(100) | Número do documento/relatório gerado |
+| `expert_name` | String(255) | Nome do perito |
+| `emission_date` | Date | Data de emissão |
+| `observations` | Text | Observações |
+| `docx_path` | String(1000) | Caminho do DOCX no MinIO |
+| `pdf_path` | String(1000) | Caminho do PDF no MinIO |
+| `docx_name` | String(500) | Nome original do DOCX |
+| `pdf_name` | String(500) | Nome original do PDF |
+| `placeholder_data` | JSONB | Dados/Placeholders preenchidos (snapshot) |
+| `created_at` | DateTime | Data de criação |
+| `updated_at` | DateTime | Última atualização |
 
 ---
 

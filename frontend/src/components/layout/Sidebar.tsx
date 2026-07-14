@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Shield, LayoutDashboard, Briefcase, Users, Cpu,
   Link2, FileText, Hash, BookOpen, UserCog, LogOut,
-  ChevronRight, ChevronDown, Gavel, History, Search,
+  ChevronRight, ChevronDown, Gavel, History, Search, BarChart2,
 } from 'lucide-react';
 import { useAuthStore } from '@/store';
 import { initials } from '@/utils/format';
@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
   { label: 'Operações', icon: Briefcase, to: '/operations' },
   { label: 'Pesquisa de Alvos', icon: Search, to: '/targets/search' },
+  { label: 'Relatórios Estatísticos', icon: BarChart2, to: '/relatorios/estatisticos' },
   { label: 'Alvos', icon: Users, to: '/targets', hidden: true },
   { label: 'Dispositivos', icon: Cpu, to: '/devices', hidden: true },
 ];

@@ -27,10 +27,11 @@ backend/
     │           ├── targets.py           # CRUD de alvos
     │           ├── devices.py           # CRUD de dispositivos
     │           ├── custody.py           # Cadeia de custódia + timeline
-    │           ├── media.py             # Fotos + laudos periciais
+    │           ├── media.py             # Fotos + documentos/laudos periciais
     │           ├── integrity.py         # Hashes de integridade
-    │           ├── report_templates.py  # Templates DOCX
-    │           └── report_generation.py # Geração de laudos PDF
+    │           ├── report_templates.py  # Templates de laudos/documentos
+    │           ├── report_generation.py # Geração e emissão de documentos PDF/DOCX
+    │           └── statistics.py        # Relatórios estatísticos (geral e por operação)
     │
     ├── core/
     │   ├── config.py        # Pydantic Settings — lê variáveis de ambiente
@@ -250,15 +251,36 @@ def generate_qrcode(data: str) -> bytes:
     ...
 ```
 
-### `report_generation_service.py` — Geração de Laudos
+### `report_generation_service.py` — Geração de Documentos
 
-Preenche templates DOCX com dados do dispositivo e gera PDF:
+Preenche templates DOCX com dados do dispositivo, alvo ou operação e gera PDF/DOCX:
 
 1. Baixa o template DOCX do MinIO
-2. Substitui placeholders com dados do dispositivo, alvo e operação
-3. Converte DOCX → PDF via `python-docx`
-4. Faz upload do PDF gerado para o bucket `reports`
-5. Retorna a URL de acesso
+2. Coleta e constrói o contexto de dados de acordo com a entidade de origem (`device`, `target` ou `operation`).
+3. Substitui placeholders textuais e injeta fotografias (como QR Code de evidência ou fotos do dispositivo).
+4. Converte e compila o DOCX final.
+5. Faz upload do arquivo gerado para o bucket `reports`.
+6. Retorna a URL presigned de acesso.
+
+---
+
+### `statistics.py` — Módulo de Estatísticas
+
+Agrega e processa dados analíticos do sistema em tempo real:
+
+- **Estatísticas Gerais do Sistema**:
+  - Filtro opcional por ano de início da operação.
+  - Agrupamento de operações por status.
+  - Breakdown de dispositivos por tipo de equipamento e por status de custódia.
+  - Contagem de movimentações por tipo de fluxo.
+  - Rankings (Top 5 operações com mais dispositivos).
+  - Linha do tempo de atividades recentes (últimas movimentações nos últimos 28 dias, ou no ano filtrado).
+
+- **Estatísticas por Operação**:
+  - Filtro rígido de controle de acesso (membros da operação ou administradores).
+  - Contagens de alvos, dispositivos, movimentações e documentos gerados no escopo da operação.
+  - Rankings internos (Top alvos por número de dispositivos associados).
+  - Histórico de movimentações ordenadas cronologicamente.
 
 ---
 

@@ -20,25 +20,27 @@ O sistema implementa **RBAC** (Role-Based Access Control) com 5 papéis hierárq
 
 ## 📊 Matriz de Permissões
 
-| Recurso | admin | custody | expert | analyst | auditor |
-|---------|:-----:|:-------:|:------:|:-------:|:-------:|
-| **Usuários** — CRUD | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Operações** — Criar/Editar | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Operações** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Alvos** — Criar/Editar | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Alvos** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Dispositivos** — Criar/Editar | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Dispositivos** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Custódia** — Registrar | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Custódia** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Fotografias** — Upload | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Fotografias** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Laudos** — Criar/Editar | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **Laudos** — Assinar | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **Laudos** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Templates** — Criar/Editar | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **Hashes** — Registrar | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Auditoria** — Visualizar | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Recurso | admin | custody | expert | analyst | auditor | Observações |
+|---------|:-----:|:-------:|:------:|:-------:|:-------:|-------------|
+| **Usuários** — CRUD | ✅ | ❌ | ❌ | ❌ | ❌ | Apenas admin |
+| **Operações** — Criar/Editar | ✅ | ✅ | ✅ | ❌ | ❌ | |
+| **Operações** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| **Alvos** — Criar/Editar | ✅ | ✅ | ✅ | ❌ | ❌ | |
+| **Alvos** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| **Dispositivos** — Criar/Editar | ✅ | ✅ | ✅ | ❌ | ❌ | |
+| **Dispositivos** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| **Custódia** — Registrar | ✅ | ✅ | ❌ | ❌ | ❌ | |
+| **Custódia** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| **Fotografias** — Upload | ✅ | ✅ | ✅ | ❌ | ❌ | |
+| **Fotografias** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| **Documentos** — Criar/Editar | ✅ | ❌ | ✅ | ❌ | ❌ | |
+| **Documentos** — Excluir | ⚠️ | ❌ | ⚠️ | ❌ | ❌ | **Apenas o usuário criador ou admin** |
+| **Documentos** — Visualizar | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| **Templates** — Criar/Editar | ✅ | ❌ | ✅ | ❌ | ❌ | |
+| **Hashes** — Registrar | ✅ | ✅ | ✅ | ✅ | ❌ | |
+| **Auditoria** — Visualizar | ✅ | ❌ | ❌ | ❌ | ✅ | |
+| **Estatísticas** — Geral | ✅ | ❌ | ❌ | ❌ | ✅ | Acesso global |
+| **Estatísticas** — Operação | ✅ | ⚠️ | ⚠️ | ⚠️ | ❌ | Apenas se for membro da operação |
 
 ---
 

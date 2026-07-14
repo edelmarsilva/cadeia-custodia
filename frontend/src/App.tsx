@@ -20,7 +20,9 @@ import UsersPage from '@/pages/UsersPage';
 import UserFormPage from '@/pages/UserFormPage';
 import ReportTemplatesPage from '@/pages/ReportTemplatesPage';
 import GenerateReportPage from '@/pages/GenerateReportPage';
+import GenerateDocumentPage from '@/pages/GenerateDocumentPage';
 import GeneratedReportsPage from '@/pages/GeneratedReportsPage';
+import StatisticsPage from '@/pages/StatisticsPage';
 
 export default function App() {
   return (
@@ -66,13 +68,21 @@ export default function App() {
           <Route path="/devices/:id" element={<DeviceDetailPage />} />
           <Route path="/devices/:deviceId/custody/new" element={<CustodyMovementFormPage />} />
 
-          {/* ── Perícia ────────────────────────────────────────── */}
+          {/* ── Perícia ───────────────────────────────────────────── */}
           <Route path="/pericia/templates" element={<ReportTemplatesPage />} />
-          <Route path="/devices/:id/gerar-laudo" element={<GenerateReportPage />} />
+          {/* Rota legada para dispositivos */}
+          <Route path="/devices/:id/gerar-laudo" element={<GenerateDocumentPage />} />
+          {/* Novas rotas por entidade */}
+          <Route path="/devices/:id/gerar-documento" element={<GenerateDocumentPage />} />
+          <Route path="/operations/:id/gerar-documento" element={<GenerateDocumentPage />} />
+          <Route path="/targets/:id/gerar-documento" element={<GenerateDocumentPage />} />
           <Route path="/pericia/historico" element={<GeneratedReportsPage />} />
 
           {/* Audit */}
           <Route path="/audit" element={<AuditPage />} />
+
+          {/* Relatórios Estatísticos */}
+          <Route path="/relatorios/estatisticos" element={<StatisticsPage />} />
 
           {/* Users */}
           <Route path="/users" element={<UsersPage />} />

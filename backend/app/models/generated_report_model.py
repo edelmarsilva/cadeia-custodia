@@ -21,9 +21,14 @@ class GeneratedReport(Base, UUIDMixin, TimestampMixin):
     )
     template_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
-    device_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("devices.id", ondelete="CASCADE"), nullable=False, index=True
+    device_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("devices.id", ondelete="CASCADE"), nullable=True, index=True
     )
+    target_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("targets.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # source_type: 'device' | 'operation' | 'target'
+    source_type: Mapped[str | None] = mapped_column(String(20), nullable=True, default="device")
     operation_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("operations.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -50,7 +55,8 @@ class GeneratedReport(Base, UUIDMixin, TimestampMixin):
     template: Mapped["ReportTemplate | None"] = relationship(  # type: ignore[name-defined]
         "ReportTemplate", back_populates="generated_reports"
     )
-    device: Mapped["Device"] = relationship("Device", foreign_keys=[device_id])  # type: ignore[name-defined]
+    device: Mapped["Device | None"] = relationship("Device", foreign_keys=[device_id])  # type: ignore[name-defined]
+    target: Mapped["Target | None"] = relationship("Target", foreign_keys=[target_id])  # type: ignore[name-defined]
     operation: Mapped["Operation | None"] = relationship("Operation", foreign_keys=[operation_id])  # type: ignore[name-defined]
     user: Mapped["User | None"] = relationship("User", foreign_keys=[user_id])  # type: ignore[name-defined]
 

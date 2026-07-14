@@ -26,15 +26,16 @@ O sistema permite o gerenciamento completo de:
 | Domínio | Descrição |
 |---------|-----------|
 | **Operações** | Investigações em andamento, com dashboard de métricas e documentos |
-| **Alvos** | Pessoas físicas e jurídicas associadas às operações |
+| **Alvos** | Pessoas físicas e jurídicas associadas às operações (com busca cross-operação) |
 | **Dispositivos** | Evidências eletrônicas apreendidas (smartphones, HDs, pendrives, etc.) |
-| **Cadeia de Custódia** | Histórico imutável e auditável de cada movimentação do dispositivo |
-| **Fotografias** | Registro fotográfico das evidências (armazenado no MinIO/S3) |
-| **Laudos Periciais** | Criação, revisão, assinatura e versionamento de laudos em PDF |
+| **Cadeia de Custódia** | Histórico imutável e auditável de cada movimentação do dispositivo (com impressão PDF) |
+| **Fotografias** | Registro fotográfico das evidências e fotos de identificação de alvos (MinIO/S3) |
+| **Documentos / Laudos** | Criação, revisão, assinatura, versionamento e exclusão de documentos/laudos em PDF |
 | **Hashes de Integridade** | Registro de MD5, SHA-1 e SHA-256 para verificação de evidências |
+| **Estatísticas** | Relatórios quantitativos gerais com filtros anuais e estatísticas por operação |
 | **Auditoria** | Log imutável de todas as ações realizadas no sistema |
 | **Usuários** | Gestão de contas com papéis e permissões hierárquicos |
-| **Templates de Laudo** | Criação e gerenciamento de modelos DOCX de laudos periciais |
+| **Templates de Documento** | Criação e gerenciamento de modelos DOCX de laudos/documentos periciais |
 
 ---
 
@@ -49,7 +50,7 @@ Movimentações de custódia são **append-only**. Nenhum registro pode ser alte
 Toda ação realizada no sistema — criações, edições, logins, downloads — é registrada em um log que não pode ser modificado ou apagado.
 
 ### 3. Soft Delete (Exclusão Lógica)
-Nenhum registro de negócio é deletado fisicamente. Todos os itens são marcados com `deleted_at`, preservando a rastreabilidade histórica completa.
+Nenhum registro de negócio é deletado fisicamente. Todos os itens são marcados com `deleted_at`, preservando a rastreabilidade histórica completa. Para documentos (`ExpertReport`), apenas o criador do registro ou um administrador pode realizar a exclusão lógica, deletando concomitantemente o arquivo no MinIO.
 
 ### 4. Hashes de Integridade Forense
 O campo `sha256` é obrigatório no registro de integridade de qualquer evidência digital, garantindo a verificabilidade e a admissibilidade probatória.
@@ -64,12 +65,12 @@ Cada dispositivo cadastrado recebe automaticamente um **QR Code** único, vincul
 ```
 1. Login
    └── 2. Criar Operação
-           └── 3. Cadastrar Alvo
+           └── 3. Cadastrar Alvo / Definir Equipe de Deflagração
                    └── 4. Cadastrar Dispositivo
-                           ├── 5. Registrar Movimentações de Custódia
-                           ├── 6. Anexar Fotografias
+                           ├── 5. Registrar Movimentações de Custódia (e imprimir se necessário)
+                           ├── 6. Anexar Fotografias (Dispositivo/Alvo)
                            ├── 7. Registrar Hashes de Integridade
-                           └── 8. Emitir Laudo Pericial
+                           └── 8. Emitir Documento Pericial (via Templates)
 ```
 
 ---
@@ -81,11 +82,13 @@ Cada dispositivo cadastrado recebe automaticamente um **QR Code** único, vincul
 | 🔐 Autenticação | `/api/v1/auth` | — |
 | 📋 Operações | `/api/v1/operations` | `analyst` |
 | 👤 Alvos | `/api/v1/targets` | `analyst` |
+| 👥 Equipes | `/api/v1/operations/{op_id}/teams` | `analyst` |
 | 📱 Dispositivos | `/api/v1/devices` | `analyst` |
 | 🔗 Custódia | `/api/v1/devices/{id}/custody` | `custody` |
-| 📷 Fotografias | `/api/v1/devices/{id}/photos` | `custody` |
-| 📄 Laudos | `/api/v1/devices/{id}/reports` | `expert` |
+| 📷 Fotografias | `/api/v1/devices/{id}/photos`, `/targets/{id}/photos` | `custody` |
+| 📄 Documentos/Laudos | `/api/v1/devices/{id}/reports`, `/reports/{report_id}` | `expert` |
 | #️⃣ Integridade | `/api/v1/devices/{id}/hashes` | `analyst` |
+| 📊 Estatísticas | `/api/v1/stats/system`, `/operations/{id}/stats` | `analyst` |
 | 📚 Auditoria | `/api/v1/audit` | `auditor` |
 | 🔑 Usuários | `/api/v1/users` | `admin` |
 | 📝 Templates | `/api/v1/report-templates` | `expert` |
@@ -96,7 +99,7 @@ Cada dispositivo cadastrado recebe automaticamente um **QR Code** único, vincul
 
 | Campo | Valor |
 |-------|-------|
-| Versão | `1.0.0` |
+| Versão | `1.2.0` |
 | Ambiente Padrão | `development` |
 | API | REST — JSON |
 | Documentação Interativa | Swagger UI + ReDoc |

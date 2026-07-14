@@ -121,6 +121,9 @@ export default function OperationDetailPage() {
           <Link to={`/operations/${id}/targets/new`} className="btn btn-secondary btn-sm">
             <Plus size={14} /> Novo Alvo
           </Link>
+          <Link to={`/operations/${id}/gerar-documento`} className="btn btn-ghost btn-sm">
+            <FileText size={14} /> Gerar Documento
+          </Link>
           {canManageOp && op.status !== 'archived' && (
             <button className="btn btn-ghost btn-sm" onClick={() => setShowStatusModal(true)}>
               <RefreshCw size={14} /> Alterar Status
@@ -652,9 +655,9 @@ function DevicesTab({
                           className="btn btn-ghost btn-sm"
                           style={{ color: 'var(--color-success, #16a34a)', fontSize: 12 }}
                           onClick={() => handleGenerateReport(d)}
-                          title="Gerar Laudo Pericial"
+                          title="Gerar Documento"
                         >
-                          <FileText size={13} /> Gerar Laudo
+                          <FileText size={13} /> Gerar Documento
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
@@ -705,7 +708,7 @@ function ChooseTemplateModal({
           <div>
             <div className="modal-title">
               <FileText size={16} style={{ display: 'inline', marginRight: 8 }} />
-              Selecionar Modelo de Laudo
+              Selecionar Modelo de Documento
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
               Dispositivo: <strong>{device.evidence_number}</strong>
@@ -758,7 +761,7 @@ function ChooseTemplateModal({
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>
           <button className="btn btn-primary" onClick={handleGerar} disabled={!selectedId}>
-            <FileText size={14} /> Gerar Laudo
+            <FileText size={14} /> Gerar Documento
           </button>
         </div>
       </div>

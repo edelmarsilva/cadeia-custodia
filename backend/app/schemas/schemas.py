@@ -242,6 +242,7 @@ class ExpertReportResponse(BaseModel):
     file_url: str | None = None  # presigned URL gerada dinamicamente
     version: int
     observations: str | None
+    created_by: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -440,7 +441,75 @@ class ReportPreviewResponse(BaseModel):
     observations: str | None
 
 
-# ── Deployment Team ───────────────────────────────────────────────
+# ── Document Generation for Operation ────────────────────────────
+class OperationDocumentCreate(BaseModel):
+    """Payload enviado pelo frontend para gerar um documento de operação ou alvo."""
+    template_id: uuid.UUID
+    report_number: str
+    expert_name: str | None = None
+    emission_date: date | None = None
+    observations: str | None = None
+
+
+class OperationDocumentPreviewResponse(BaseModel):
+    """Pré-visualização dos dados de uma Operação para geração de documento."""
+    report_number: str
+    expert_name: str | None
+    emission_date: str | None
+    operation_name: str | None
+    procedure_number: str | None
+    responsible_unit: str | None
+    start_date: str | None
+    end_date: str | None
+    operation_status: str | None
+    total_targets: str | None
+    total_devices: str | None
+    observations: str | None
+
+
+class TargetDocumentPreviewResponse(BaseModel):
+    """Pré-visualização dos dados de um Alvo para geração de documento."""
+    report_number: str
+    expert_name: str | None
+    emission_date: str | None
+    target_name: str | None
+    target_cpf: str | None
+    target_rg: str | None
+    target_nickname: str | None
+    target_birth_date: str | None
+    target_address: str | None
+    total_devices: str | None
+    operation_name: str | None
+    procedure_number: str | None
+    responsible_unit: str | None
+    observations: str | None
+
+
+# ── Generated Document (Operation/Target) ────────────────────────
+class GeneratedDocumentResponse(BaseModel):
+    """Resposta para documentos gerados a partir de operações ou alvos (sem device_id obrigatório)."""
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    template_id: uuid.UUID | None
+    template_version: str | None
+    device_id: uuid.UUID | None = None
+    operation_id: uuid.UUID | None
+    user_id: uuid.UUID | None
+    report_number: str
+    expert_name: str | None
+    emission_date: date | None
+    observations: str | None
+    docx_path: str | None
+    pdf_path: str | None
+    docx_name: str | None
+    pdf_name: str | None
+    placeholder_data: dict | None
+    created_at: datetime
+    updated_at: datetime
+    docx_url: str | None = None
+    pdf_url: str | None = None
+
+
 class DeploymentTeamCreate(BaseModel):
     name: str
     description: str | None = None

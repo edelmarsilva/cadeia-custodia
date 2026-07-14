@@ -1,5 +1,46 @@
 # CHANGELOG — Cadeia de Custódia
 
+## [1.2.0] — 2026-07-14
+
+### ✨ Novas Funcionalidades
+
+#### Geração de Documentos Gerais
+- Emissão de documentos relacionados a Operações e Alvos, além do fluxo existente para Dispositivos.
+- Interface atualizada: substituição do termo "Laudo" por "Documento" (Aba "Laudos" -> "Documentos", botão "Gerar Laudo" -> "Gerar Documento").
+- Expansão massiva de placeholders (`PLACEHOLDER_MAP`) no motor de templates para abranger dados detalhados de alvos, operações, custódia e especificações técnicas de dispositivos.
+
+#### Impressão de Movimentações da Custódia
+- Adição do botão **Imprimir** na aba de Custódia do Dispositivo.
+- Gera um layout otimizado e limpo em PDF via diálogo de impressão nativo do navegador contendo todo o histórico de movimentações da cadeia de custódia.
+
+#### Restrição e Controle de Remoção de Documentos
+- Controle baseado em propriedade (ownership): apenas o usuário criador do documento ou um administrador possui permissão para apagar ou excluir documentos.
+- Soft-delete com expurgo automático correspondente do arquivo físico no storage do MinIO.
+
+#### Relatórios Estatísticos e Filtros Anuais
+- Nova página `/relatorios/estatisticos` com dois níveis de visão:
+  - **Geral do Sistema**: Gráficos e cards de contagem, breakdowns (por status, tipo, movimentação) e top operações.
+  - **Por Operação**: Select dinâmico para escolher a operação e exibir seus cards e breakdowns consolidados.
+- Suporte a filtros por ano de execução das operações na visualização geral do sistema (Geral ou por Ano específico).
+- Geração de PDF dos relatórios estatísticos formatados diretamente pelo botão "Imprimir PDF".
+
+### 🗃️ Banco de Dados
+
+Nova migração: `d4e5f6a7b8c9`
+
+Tabelas alteradas:
+- `generated_reports`: adicionados campos `target_id` e `source_type` para suportar emissão por Alvos e Operações.
+- `expert_reports`: adicionado campo `deleted_at` para suporte a soft-delete de documentos.
+
+### 🌐 API
+
+Novos endpoints:
+- `DELETE /api/v1/reports/{report_id}` - Excluir documento/laudo (apenas dono ou admin)
+- `GET /api/v1/stats/system` - Estatísticas do sistema (admin/auditor, com query param `year`)
+- `GET /api/v1/operations/{operation_id}/stats` - Estatísticas detalhadas por operação
+
+---
+
 ## [1.1.0] — 2026-07-08
 
 ### ✨ Novas Funcionalidades

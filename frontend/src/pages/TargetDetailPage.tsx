@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Cpu, ChevronRight, Camera, Users, Clock,
-  Trash2, X, Upload, Image, AlertCircle, ExternalLink,
+  Trash2, X, Upload, Image, AlertCircle, ExternalLink, FileText,
 } from 'lucide-react';
 import { targetsApi, devicesApi, targetPhotosApi, targetHistoryApi, deploymentTeamsApi } from '@/api/endpoints';
 import type { Target, Device, TargetPhoto, TargetHistoryResult, DeploymentTeam } from '@/types';
@@ -168,9 +168,14 @@ export default function TargetDetailPage() {
             </p>
           </div>
         </div>
-        <Link to={`/targets/${id}/devices/new`} className="btn btn-primary">
-          <Plus size={15} /> Novo Dispositivo
-        </Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to={`/targets/${id}/gerar-documento`} className="btn btn-ghost btn-sm">
+            <FileText size={14} /> Gerar Documento
+          </Link>
+          <Link to={`/targets/${id}/devices/new`} className="btn btn-primary">
+            <Plus size={15} /> Novo Dispositivo
+          </Link>
+        </div>
       </div>
 
       {/* Tab Navigation */}

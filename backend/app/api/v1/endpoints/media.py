@@ -320,3 +320,53 @@ async def update_report(
             logger.warning("Falha ao gerar URL pre-assinada para laudo atualizado %s: %s", report_id, exc)
             resp.file_url = None
     return resp
+
+
+@router.delete("/reports/{report_id}", response_model=MessageResponse)
+async def delete_report(
+    report_id: uuid.UUID,
+    current_user: CurrentUser,
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Remove um documento/laudo. Apenas o autor ou um administrador podem excluir."""
+    result = await session.execute(
+        select(ExpertReport).where(ExpertReport.id == report_id, ExpertReport.deleted_at.is_(None))
+    )
+    report: ExpertReport | None = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail="Documento não encontrado.")
+
+    caller_id = uuid.UUID(current_user["sub"])
+    is_admin = current_user.get("role") == "admin"
+    is_owner = report.created_by == caller_id or report.expert_user_id == caller_id
+
+    if not is_admin and not is_owner:
+        raise HTTPException(
+            status_code=403,
+            detail="Apenas o autor do documento ou um administrador pode excluí-lo.",
+        )
+
+    # Soft-delete
+    from datetime import datetime, timezone
+    report.deleted_at = datetime.now(timezone.utc)
+
+    # Remove arquivo do storage (melhor esforço)
+    if report.file_path:
+        try:
+            storage_service.delete_object(
+                bucket=settings.MINIO_BUCKET_REPORTS,
+                object_name=report.file_path,
+            )
+        except Exception as exc:
+            logger.warning("Falha ao remover arquivo do storage %s: %s", report_id, exc)
+
+    await audit_service.log_action(
+        session,
+        action="report_deleted",
+        entity_type="report",
+        entity_id=str(report_id),
+        description=f"Documento '{report.report_number}' excluído",
+        user_id=caller_id,
+        username=current_user["username"],
+    )
+    return MessageResponse(message="Documento removido com sucesso.")
