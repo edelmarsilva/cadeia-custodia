@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     custody,
     deployment_teams,
     devices,
+    field_sessions,
     integrity,
     media,
     operations,
@@ -31,4 +32,5 @@ api_router.include_router(report_generation.router)
 api_router.include_router(deployment_teams.router)
 api_router.include_router(target_media.router)
 api_router.include_router(statistics.router)
+api_router.include_router(field_sessions.router)
 

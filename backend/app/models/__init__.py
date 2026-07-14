@@ -5,6 +5,8 @@ from app.models.deployment_team_model import DeploymentTeam
 from app.models.deployment_team_target_model import DeploymentTeamTarget
 from app.models.device_model import Device
 from app.models.document_model import Document
+from app.models.field_device_record_model import FieldDeviceRecord
+from app.models.field_photo_session_model import FieldPhotoSession
 from app.models.generated_report_model import GeneratedReport
 from app.models.hash_model import IntegrityHash
 from app.models.operation_model import Operation
@@ -34,5 +36,7 @@ __all__ = [
     "DeploymentTeam",
     "DeploymentTeamMember",
     "DeploymentTeamTarget",
+    "FieldPhotoSession",
+    "FieldDeviceRecord",
 ]
 
