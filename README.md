@@ -1,6 +1,8 @@
 # 🔒 Sistema de Cadeia de Custódia de Evidências Digitais
 
-> Sistema institucional de gerenciamento de cadeia de custódia de evidências digitais, voltado para operações de investigação, perícia forense e controle de dispositivos eletrônicos apreendidos.
+> Sistema institucional de gerenciamento da cadeia de custódia de evidências digitais, voltado para operações de investigação policial, perícia forense e controle de dispositivos eletrônicos apreendidos. Inclui módulo mobile de coleta guiada de fotografias em campo.
+
+**Versão:** 1.3.0 | **Plataforma:** Web + Android | **Licença:** Institucional
 
 ---
 
@@ -9,31 +11,33 @@
 - [Visão Geral](#visão-geral)
 - [Funcionalidades](#funcionalidades)
 - [Arquitetura](#arquitetura)
+- [Stack Tecnológico](#stack-tecnológico)
 - [Pré-requisitos](#pré-requisitos)
 - [Instalação e Execução](#instalação-e-execução)
-  - [Com Docker (Recomendado)](#com-docker-recomendado)
-  - [Desenvolvimento Local (sem Docker)](#desenvolvimento-local-sem-docker)
-- [Configuração do Ambiente](#configuração-do-ambiente)
 - [Variáveis de Ambiente](#variáveis-de-ambiente)
 - [Acesso ao Sistema](#acesso-ao-sistema)
 - [Estrutura do Projeto](#estrutura-do-projeto)
 - [API REST](#api-rest)
+- [App Mobile (Flutter)](#app-mobile-flutter)
 - [Controle de Acesso (RBAC)](#controle-de-acesso-rbac)
-- [Princípios de Segurança](#princípios-de-segurança)
+- [Princípios de Segurança Forense](#princípios-de-segurança-forense)
+- [Suporte](#suporte)
 
 ---
 
 ## Visão Geral
 
-O sistema permite o gerenciamento completo de:
+O sistema permite o gerenciamento completo do ciclo de vida de evidências digitais, desde a apreensão em campo até a geração de relatórios periciais oficiais:
 
-- **Operações** de investigação (com dashboard de métricas)
+- **Operações** de investigação com dashboard de métricas
+- **Equipes de Deflagração** com membros e alvos vinculados
 - **Alvos** (pessoas físicas e jurídicas)
-- **Dispositivos** eletrônicos apreendidos (smartphones, HDs, pendrives, etc.)
+- **Dispositivos** eletrônicos apreendidos (smartphones, HDs, pendrives, DVRs, etc.)
 - **Cadeia de custódia** — histórico imutável e auditável de movimentações
-- **Fotografias** das evidências (armazenadas no MinIO/S3)
-- **Laudos periciais** (PDF, com versionamento)
-- **Hashes de integridade** (MD5, SHA1, SHA256)
+- **Coleta guiada de fotografias** via app Android (assistente de 8 etapas com OCR e GPS)
+- **Documentos** técnicos e periciais (PDF, com controle de acesso por autor)
+- **Hashes de integridade** (MD5, SHA-1, SHA-256)
+- **Relatórios estatísticos** (por operação e consolidados por ano)
 - **Log de auditoria** imutável de todas as ações do sistema
 
 ---
@@ -42,49 +46,75 @@ O sistema permite o gerenciamento completo de:
 
 | Módulo | Descrição |
 |--------|-----------|
-| 🔐 Autenticação | Login JWT com access + refresh token |
-| 📋 Operações | CRUD completo, dashboard com contadores, gestão de documentos |
-| 👤 Alvos | Cadastro de pessoas físicas/jurídicas com dados completos |
-| 📱 Dispositivos | Cadastro com campos específicos por tipo (IMEI, processador, capacidade, etc.) |
-| 🔗 Custódia | Registro imutável de movimentações com timeline visual |
-| 📷 Fotografias | Upload e galeria de fotos por evidência |
-| 📄 Laudos | Criação, revisão, assinatura e versionamento de laudos periciais |
-| #️⃣ Integridade | Registro de hashes SHA-256, SHA-1 e MD5 |
-| 📚 Auditoria | Log imutável de todas as ações, com filtros e paginação |
-| 🔑 Usuários | Gestão de usuários com papéis e permissões (somente admin) |
+| 🔐 **Autenticação** | Login JWT com access + refresh token e proteção por papel (RBAC) |
+| 📋 **Operações** | CRUD completo, dashboard com contadores, gestão de membros e documentos |
+| 👥 **Equipes de Deflagração** | Criação de equipes por operação com líder e membros, vinculação a alvos |
+| 👤 **Alvos** | Cadastro de PF/PJ com dados completos, fotos e dispositivos vinculados |
+| 📱 **Dispositivos** | Cadastro por tipo com campos específicos (IMEI, serial, lacre, QR Code) |
+| 🔗 **Custódia** | Registro imutável de movimentações com timeline visual e impressão em PDF |
+| 📸 **Coleta de Campo** | App mobile Android com assistente de 8 etapas guiadas, OCR e GPS |
+| 📄 **Documentos** | Upload de arquivos técnicos, controle de exclusão por autor |
+| 🔨 **Laudos Periciais** | Geração automática de laudos em PDF via templates configuráveis |
+| #️⃣ **Integridade** | Registro e verificação de hashes criptográficos por evidência |
+| 📊 **Estatísticas** | Relatórios por operação e gerais do sistema com filtro por ano |
+| 📚 **Auditoria** | Log imutável de todas as ações, com filtros, paginação e exportação |
+| 🔑 **Usuários** | Gestão de usuários com papéis hierárquicos (somente admin) |
 
 ---
 
 ## Arquitetura
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     Docker Compose                       │
-│                                                          │
-│  ┌──────────────┐    ┌──────────────┐    ┌───────────┐  │
-│  │   Frontend   │───▶│   Backend    │───▶│ PostgreSQL│  │
-│  │ React/Vite   │    │   FastAPI    │    │  (dados)  │  │
-│  │ :5173        │    │   :8000      │    │  :5432    │  │
-│  └──────────────┘    └──────┬───────┘    └───────────┘  │
-│                             │                            │
-│                       ┌─────▼──────┐                    │
-│                       │   MinIO    │                    │
-│                       │  (arquivos)│                    │
-│                       │ :9000/:9001│                    │
-│                       └────────────┘                    │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Docker Compose                                  │
+│                                                                              │
+│  ┌───────────────┐     ┌──────────────────┐     ┌────────────────────────┐  │
+│  │   Frontend    │────▶│     Backend      │────▶│  PostgreSQL 16         │  │
+│  │ React + Vite  │     │  FastAPI (async) │     │  (dados relacionais)   │  │
+│  │  Port: 5173   │     │   Port: 8000     │     │    Port: 5432          │  │
+│  └───────────────┘     └────────┬─────────┘     └────────────────────────┘  │
+│                                 │                                            │
+│                         ┌───────▼────────┐                                  │
+│                         │     MinIO      │                                  │
+│                         │ (armazenamento)│                                  │
+│                         │ Port: 9000/9001│                                  │
+│                         └────────────────┘                                  │
+│                                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  App Mobile Flutter (Android)  ──────▶  Backend API /api/v1          │  │
+│  │  • Offline SQLite + Câmera + GPS + OCR (ML Kit)                      │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Stack tecnológico:**
+### Fluxo de Dados
 
-| Camada | Tecnologia |
-|--------|-----------|
-| Frontend | React 18 + TypeScript + Vite + Zustand + React Router v6 |
-| Backend | FastAPI + SQLAlchemy (async) + Alembic + Pydantic v2 |
-| Banco de dados | PostgreSQL 16 |
-| Armazenamento de arquivos | MinIO (compatível com S3) |
-| Autenticação | JWT (python-jose) + Bcrypt (passlib) |
-| Containerização | Docker + Docker Compose v2 |
+```
+Campo (Mobile) ──[coleta offline]──▶ SQLite local
+                                         │
+                                    [sincronização]
+                                         │
+                                         ▼
+Web API ◀──── FastAPI ──── PostgreSQL + MinIO
+  │
+  └──── Frontend React (navegador)
+```
+
+---
+
+## Stack Tecnológico
+
+| Camada | Tecnologia | Versão |
+|--------|-----------|--------|
+| **Frontend** | React + TypeScript + Vite + Zustand + React Router v6 | 18.x |
+| **Backend** | FastAPI + SQLAlchemy (async) + Alembic + Pydantic v2 | 0.115.x |
+| **Banco de dados** | PostgreSQL | 16 |
+| **Armazenamento** | MinIO (compatível com S3) | Latest |
+| **Autenticação** | JWT (python-jose) + Bcrypt (passlib) | — |
+| **Containerização** | Docker + Docker Compose v2 | 24+ / 2.20+ |
+| **App Mobile** | Flutter + Dart | 3.22+ |
+| **OCR Mobile** | Google ML Kit Text Recognition (offline) | 0.14.x |
+| **DB Offline** | SQLite via sqflite | 2.x |
 
 ---
 
@@ -95,12 +125,11 @@ O sistema permite o gerenciamento completo de:
 - [Docker Engine](https://docs.docker.com/engine/install/) v24+
 - [Docker Compose](https://docs.docker.com/compose/install/) v2.20+
 
-### Para desenvolvimento local (sem Docker)
+### Para o App Mobile Android
 
-- Python 3.11+
-- Node.js 18+ e npm 9+
-- PostgreSQL 14+ rodando localmente
-- MinIO rodando localmente (opcional para teste)
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) 3.22+
+- [Android Studio](https://developer.android.com/studio) com Android SDK 21+
+- Dispositivo físico Android ou emulador
 
 ---
 
@@ -108,253 +137,83 @@ O sistema permite o gerenciamento completo de:
 
 ### Com Docker (Recomendado)
 
-#### 1. Clone o repositório
-
 ```bash
-git clone <url-do-repositório>
+# 1. Clonar o repositório
+git clone https://github.com/edelmarsilva/cadeia-custodia.git
 cd cadeia-custodia
-```
 
-#### 2. Configure as variáveis de ambiente
-
-```bash
+# 2. Copiar e ajustar variáveis de ambiente
 cp .env.example .env
-```
+# Edite o .env com suas configurações antes de prosseguir
 
-Edite o arquivo `.env` e **altere obrigatoriamente** os seguintes campos antes de subir em produção:
+# 3. Construir e iniciar todos os serviços
+docker compose up -d --build
 
-```dotenv
-SECRET_KEY=<gere uma chave segura com: openssl rand -hex 32>
-POSTGRES_PASSWORD=<senha forte para o banco>
-MINIO_SECRET_KEY=<senha forte para o MinIO>
-ADMIN_PASSWORD=<senha do usuário administrador inicial>
-ADMIN_EMAIL=<e-mail do administrador>
-```
-
-#### 3. Suba todos os serviços
-
-```bash
-docker compose up --build -d
-```
-
-Este comando inicia, em ordem:
-
-1. **PostgreSQL** — banco de dados relacional
-2. **MinIO** — armazenamento de arquivos (fotos, laudos, documentos)
-3. **mc (MinIO Client)** — configura os buckets automaticamente e encerra
-4. **Backend** FastAPI — aguarda o banco subir antes de iniciar
-5. **Frontend** React — interface web
-
-#### 4. Execute as migrações do banco
-
-Na primeira execução, rode as migrações para criar todas as tabelas:
-
-```bash
-docker compose exec backend alembic upgrade head
-```
-
-> O usuário administrador inicial é criado automaticamente na primeira inicialização do backend, conforme as variáveis `ADMIN_*` do `.env`.
-
-#### 5. Acesse o sistema
-
-| Serviço | URL |
-|---------|-----|
-| Interface Web | http://localhost:5173 |
-| API (Swagger) | http://localhost:8000/api/docs |
-| API (Redoc) | http://localhost:8000/api/redoc |
-| MinIO Console | http://localhost:9001 |
-
-#### Comandos úteis
-
-```bash
-# Ver logs de todos os serviços
-docker compose logs -f
-
-# Ver logs apenas do backend
-docker compose logs -f backend
-
-# Verificar status dos containers
+# 4. Verificar se todos os serviços estão saudáveis
 docker compose ps
-
-# Parar todos os serviços
-docker compose down
-
-# Parar e remover volumes (apaga dados do banco!)
-docker compose down -v
-
-# Reiniciar apenas o backend após alterações
-docker compose restart backend
+curl http://localhost:8000/health
 ```
 
----
-
-### Desenvolvimento Local (sem Docker)
-
-Recomendado para quem deseja modificar o código e testar em tempo real.
-
-#### Backend
+### Rebuild sem Cache (após mudanças no backend)
 
 ```bash
-cd backend
-
-# Criar e ativar ambiente virtual
-python3 -m venv venv
-source venv/bin/activate          # Linux/macOS
-# venv\Scripts\activate           # Windows
-
-# Instalar dependências
-pip install -r requirements.txt
-
-# Configurar variáveis de ambiente
-# Certifique-se que DATABASE_URL aponta para localhost:
-# DATABASE_URL=postgresql+asyncpg://cadeia:cadeia_secret@localhost:5432/cadeia_custodia
-export $(cat ../.env | grep -v '^#' | xargs)
-
-# Executar migrações
-alembic upgrade head
-
-# Iniciar o servidor de desenvolvimento
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+docker compose down && docker compose build --no-cache && docker compose up -d
 ```
 
-A API estará disponível em: `http://localhost:8000`
-Documentação interativa: `http://localhost:8000/api/docs`
-
-#### Frontend
+### Verificar logs
 
 ```bash
-cd frontend
-
-# Instalar dependências
-npm install
-
-# Iniciar servidor de desenvolvimento
-npm run dev
-```
-
-A interface estará disponível em: `http://localhost:5173`
-
-> O Vite está configurado para fazer proxy das chamadas `/api` para `http://localhost:8000`, então o backend precisa estar rodando.
-
-#### Build para produção (frontend)
-
-```bash
-cd frontend
-npm run build
-# Saída em: frontend/dist/
-```
-
----
-
-## Configuração do Ambiente
-
-### Arquivo `.env`
-
-O arquivo `.env` fica na raiz do projeto e contém todas as variáveis de configuração. **Nunca versione este arquivo em repositórios públicos.**
-
-A seguir, uma descrição de cada grupo de variáveis:
-
-#### Banco de dados
-
-```dotenv
-POSTGRES_USER=cadeia              # Usuário do PostgreSQL
-POSTGRES_PASSWORD=cadeia_secret   # Senha do PostgreSQL (ALTERE em produção)
-POSTGRES_DB=cadeia_custodia       # Nome do banco de dados
-POSTGRES_HOST=db                  # Host (use "db" no Docker, "localhost" local)
-POSTGRES_PORT=5432                # Porta padrão do PostgreSQL
-
-DATABASE_URL=postgresql+asyncpg://cadeia:cadeia_secret@db:5432/cadeia_custodia
-DATABASE_URL_SYNC=postgresql+psycopg2://cadeia:cadeia_secret@db:5432/cadeia_custodia
-```
-
-#### Autenticação JWT
-
-```dotenv
-SECRET_KEY=TROQUE_POR_UMA_CHAVE_SEGURA   # Gere com: openssl rand -hex 32
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60            # Validade do access token (1 hora)
-REFRESH_TOKEN_EXPIRE_DAYS=7              # Validade do refresh token (7 dias)
-```
-
-#### MinIO (Armazenamento de Arquivos)
-
-```dotenv
-MINIO_ENDPOINT=minio:9000         # Host do MinIO (use "minio:9000" no Docker)
-MINIO_ACCESS_KEY=minioadmin       # Usuário do MinIO
-MINIO_SECRET_KEY=minioadmin123    # Senha do MinIO (ALTERE em produção)
-MINIO_BUCKET_PHOTOS=photos        # Bucket para fotos de evidências
-MINIO_BUCKET_REPORTS=reports      # Bucket para laudos periciais (PDF)
-MINIO_BUCKET_DOCUMENTS=documents  # Bucket para documentos da operação
-MINIO_USE_SSL=false               # true em produção com HTTPS
-```
-
-#### Aplicação
-
-```dotenv
-APP_ENV=development               # "development" ou "production"
-APP_NAME=Cadeia de Custódia
-APP_VERSION=1.0.0
-DEBUG=true                        # false em produção
-ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
-```
-
-#### Usuário Administrador Inicial
-
-```dotenv
-ADMIN_USERNAME=admin
-ADMIN_EMAIL=admin@pericia.gov.br
-ADMIN_PASSWORD=Admin@123!         # ALTERE em produção
-ADMIN_FULL_NAME=Administrador do Sistema
+docker compose logs -f backend    # Backend
+docker compose logs -f frontend   # Frontend
+docker compose logs -f db         # PostgreSQL
 ```
 
 ---
 
 ## Variáveis de Ambiente
 
-Tabela completa de referência:
+Copie `.env.example` → `.env` e configure:
 
-| Variável | Obrigatória | Padrão | Descrição |
-|----------|:-----------:|--------|-----------|
-| `POSTGRES_USER` | ✅ | `cadeia` | Usuário do banco |
-| `POSTGRES_PASSWORD` | ✅ | — | Senha do banco |
-| `POSTGRES_DB` | ✅ | `cadeia_custodia` | Nome do banco |
-| `DATABASE_URL` | ✅ | — | URL de conexão async |
-| `DATABASE_URL_SYNC` | ✅ | — | URL de conexão sync (Alembic) |
-| `SECRET_KEY` | ✅ | — | Chave JWT (mín. 32 chars) |
-| `ALGORITHM` | ❌ | `HS256` | Algoritmo JWT |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | ❌ | `60` | Validade access token |
-| `REFRESH_TOKEN_EXPIRE_DAYS` | ❌ | `7` | Validade refresh token |
-| `MINIO_ENDPOINT` | ✅ | — | Host:porta do MinIO |
-| `MINIO_ACCESS_KEY` | ✅ | — | Usuário MinIO |
-| `MINIO_SECRET_KEY` | ✅ | — | Senha MinIO |
-| `MINIO_USE_SSL` | ❌ | `false` | Usar HTTPS no MinIO |
-| `APP_ENV` | ❌ | `development` | Ambiente |
-| `DEBUG` | ❌ | `true` | Modo debug |
-| `ALLOWED_ORIGINS` | ✅ | — | Origens CORS permitidas |
-| `ADMIN_USERNAME` | ✅ | — | Login do admin inicial |
-| `ADMIN_EMAIL` | ✅ | — | E-mail do admin inicial |
-| `ADMIN_PASSWORD` | ✅ | — | Senha do admin inicial |
-| `ADMIN_FULL_NAME` | ❌ | — | Nome completo do admin |
+| Variável | Descrição | Padrão |
+|----------|-----------|--------|
+| `DATABASE_URL` | String de conexão PostgreSQL | `postgresql+asyncpg://...` |
+| `SECRET_KEY` | Chave secreta JWT (32+ chars aleatórios) | **Alterar em produção** |
+| `MINIO_ENDPOINT` | Endereço interno do MinIO | `minio:9000` |
+| `MINIO_ACCESS_KEY` | Chave de acesso MinIO | `minioadmin` |
+| `MINIO_SECRET_KEY` | Chave secreta MinIO | **Alterar em produção** |
+| `MINIO_PUBLIC_ENDPOINT` | Endereço público MinIO (para URLs assinadas) | `http://localhost:5173/storage` |
+
+> ⚠️ **Nunca comite o arquivo `.env` no repositório.**
 
 ---
 
 ## Acesso ao Sistema
 
-### Login padrão (primeiro acesso)
+Após a inicialização, acesse:
 
-| Campo | Valor |
-|-------|-------|
-| Usuário | `admin` |
-| Senha | `Admin@123!` |
+| Serviço | URL | Credenciais |
+|---------|-----|-------------|
+| **Sistema Web** | http://localhost:5173 | admin / Admin@123! |
+| **API Swagger** | http://localhost:8000/api/docs | — |
+| **API ReDoc** | http://localhost:8000/api/redoc | — |
+| **MinIO Console** | http://localhost:9001 | minioadmin / minioadmin123 |
 
-> ⚠️ **Altere a senha imediatamente após o primeiro login em ambiente de produção.**
+> ⚠️ **Altere a senha do admin imediatamente após o primeiro login em produção.**
 
 ### Fluxo básico de uso
 
 ```
-1. Login → 2. Criar Operação → 3. Cadastrar Alvo → 4. Cadastrar Dispositivo
-→ 5. Registrar Movimentações de Custódia → 6. Anexar Fotos
-→ 7. Registrar Hashes de Integridade → 8. Emitir Laudo Pericial
+1. Login
+2. Criar Operação
+3. Cadastrar Equipe de Deflagração + Membros
+4. Cadastrar Alvos
+5. Sair a campo → App Mobile → Coletar fotografias guiadas
+6. Sincronizar fotos com o servidor
+7. Cadastrar Dispositivos definitivos
+8. Registrar Movimentações de Custódia
+9. Anexar Documentos e Hashes de Integridade
+10. Gerar Laudo Pericial
+11. Emitir Relatório Estatístico
 ```
 
 ---
@@ -364,90 +223,109 @@ Tabela completa de referência:
 ```
 cadeia-custodia/
 │
-├── .env                          # Variáveis de ambiente (não versionar)
-├── .env.example                  # Template de variáveis de ambiente
+├── .env                          # Variáveis de ambiente (NÃO versionar)
+├── .env.example                  # Template de variáveis
 ├── docker-compose.yml            # Definição de todos os serviços
+├── README.md                     # Este arquivo
+├── manual-do-usuario.md          # Manual de uso detalhado
+├── projeto_tecnologias.txt       # Documentação técnica oficial
 │
 ├── backend/
 │   ├── Dockerfile
-│   ├── alembic.ini               # Configuração do Alembic
-│   ├── requirements.txt          # Dependências Python
+│   ├── alembic.ini
+│   ├── requirements.txt
 │   └── app/
-│       ├── main.py               # Entry point da API (FastAPI)
-│       ├── api/
-│       │   └── v1/
-│       │       ├── router.py     # Agregador de todos os routers
-│       │       └── endpoints/
-│       │           ├── auth.py         # Login, refresh, me
-│       │           ├── users.py        # CRUD de usuários (admin)
-│       │           ├── operations.py   # CRUD de operações
-│       │           ├── targets.py      # CRUD de alvos
-│       │           ├── devices.py      # CRUD de dispositivos
-│       │           ├── custody.py      # Cadeia de custódia + timeline
-│       │           ├── media.py        # Fotos + laudos
-│       │           └── integrity.py    # Hashes + auditoria
+│       ├── main.py
+│       ├── api/v1/
+│       │   ├── router.py
+│       │   └── endpoints/
+│       │       ├── auth.py
+│       │       ├── users.py
+│       │       ├── operations.py
+│       │       ├── targets.py
+│       │       ├── devices.py
+│       │       ├── custody.py
+│       │       ├── media.py
+│       │       ├── integrity.py
+│       │       ├── deployment_teams.py
+│       │       ├── target_media.py
+│       │       ├── report_generation.py
+│       │       ├── report_templates.py
+│       │       ├── statistics.py
+│       │       └── field_sessions.py   ← Módulo Mobile
 │       ├── core/
-│       │   ├── config.py         # Configuração via Pydantic Settings
-│       │   ├── deps.py           # Dependências FastAPI (auth, RBAC)
-│       │   └── security.py       # JWT, bcrypt
+│       │   ├── config.py
+│       │   ├── deps.py           # RBAC + Auth dependencies
+│       │   └── security.py       # JWT + bcrypt
 │       ├── db/
-│       │   ├── database.py       # Engine async/sync, sessões
-│       │   └── seed.py           # Criação do admin inicial
-│       ├── migrations/           # Migrações Alembic
-│       │   ├── env.py
-│       │   └── versions/
-│       ├── models/               # Modelos ORM (SQLAlchemy)
+│       │   ├── database.py
+│       │   └── seed.py
+│       ├── migrations/versions/  # Migrações Alembic
+│       ├── models/
+│       │   ├── base.py                       # UUIDMixin, TimestampMixin, SoftDeleteMixin
 │       │   ├── user_model.py
 │       │   ├── operation_model.py
+│       │   ├── operation_user_model.py
 │       │   ├── target_model.py
+│       │   ├── target_photo_model.py
 │       │   ├── device_model.py
 │       │   ├── custody_model.py
-│       │   ├── photo_model.py
-│       │   ├── report_model.py
-│       │   ├── hash_model.py
+│       │   ├── photo_model.py                # + metadados forenses do app mobile
 │       │   ├── document_model.py
-│       │   └── audit_model.py
-│       ├── schemas/              # Schemas Pydantic (request/response)
+│       │   ├── report_model.py
+│       │   ├── report_template_model.py
+│       │   ├── generated_report_model.py
+│       │   ├── hash_model.py
+│       │   ├── audit_model.py
+│       │   ├── deployment_team_model.py
+│       │   ├── deployment_team_member_model.py
+│       │   ├── deployment_team_target_model.py
+│       │   ├── field_photo_session_model.py   ← Módulo Mobile
+│       │   └── field_device_record_model.py   ← Módulo Mobile
+│       ├── schemas/
+│       │   ├── schemas.py
+│       │   ├── common_schema.py
+│       │   └── field_session_schemas.py       ← Módulo Mobile
 │       └── services/
-│           ├── audit_service.py  # Log de auditoria imutável
-│           ├── storage_service.py # Upload/download MinIO
-│           └── qrcode_service.py  # Geração de QR Code
+│           ├── audit_service.py
+│           ├── storage_service.py
+│           ├── qrcode_service.py
+│           └── report_generation_service.py
 │
-└── frontend/
-    ├── index.html
-    ├── package.json
-    ├── vite.config.ts
-    ├── tsconfig.json
-    └── src/
-        ├── main.tsx              # Entry point React
-        ├── App.tsx               # Roteamento (React Router v6)
-        ├── index.css             # Design system (CSS vars + componentes)
-        ├── api/
-        │   ├── client.ts         # Axios + interceptors JWT
-        │   └── endpoints.ts      # Chamadas de API por domínio
-        ├── store/
-        │   └── index.ts          # Zustand (auth persistido, UI)
-        ├── types/
-        │   └── index.ts          # Tipos TypeScript globais
-        ├── utils/
-        │   ├── format.ts         # Formatação de datas, CPF, etc.
-        │   └── labels.ts         # Labels e badges de enums
-        ├── pages/
-        │   ├── LoginPage.tsx
-        │   ├── DashboardPage.tsx
-        │   ├── OperationsPage.tsx
-        │   ├── OperationFormPage.tsx
-        │   ├── OperationDetailPage.tsx
-        │   ├── TargetDetailPage.tsx
-        │   ├── TargetFormPage.tsx
-        │   ├── DeviceDetailPage.tsx
-        │   ├── DeviceFormPage.tsx
-        │   ├── CustodyMovementFormPage.tsx
-        │   └── AuditPage.tsx
-        └── components/
-            └── layout/
-                ├── AppLayout.tsx    # Shell principal + auth guard
-                └── Sidebar.tsx      # Navegação lateral com RBAC
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── src/
+│       ├── App.tsx
+│       ├── index.css
+│       ├── api/
+│       ├── store/
+│       ├── types/
+│       ├── utils/
+│       ├── pages/
+│       └── components/
+│
+└── mobile/                       ← App Flutter Android
+    ├── pubspec.yaml
+    └── lib/
+        ├── main.dart
+        ├── app/
+        │   ├── router.dart
+        │   └── theme.dart
+        ├── core/
+        │   ├── api/client.dart
+        │   ├── db/local_db.dart
+        │   └── services/
+        │       ├── hash_service.dart
+        │       ├── gps_service.dart
+        │       ├── ocr_service.dart
+        │       └── sync_service.dart
+        └── features/
+            ├── auth/login_screen.dart
+            ├── session/
+            ├── devices/
+            ├── wizard/photo_wizard_screen.dart
+            └── sync/sync_screen.dart
 ```
 
 ---
@@ -459,66 +337,121 @@ A documentação interativa completa está disponível em:
 - **Swagger UI**: `http://localhost:8000/api/docs`
 - **ReDoc**: `http://localhost:8000/api/redoc`
 
-### Principais endpoints
+### Autenticação
+
+Todas as rotas (exceto `/auth/login` e `/health`) exigem:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+### Principais Endpoints
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
 | `POST` | `/api/v1/auth/login` | Autenticação (retorna JWT) |
 | `POST` | `/api/v1/auth/refresh` | Renovar access token |
 | `GET` | `/api/v1/auth/me` | Dados do usuário autenticado |
-| `GET` | `/api/v1/operations` | Listar operações (filtros + paginação) |
-| `POST` | `/api/v1/operations` | Criar operação |
-| `GET` | `/api/v1/operations/{id}` | Dashboard da operação (com métricas) |
-| `GET` | `/api/v1/operations/{id}/targets` | Alvos da operação |
-| `POST` | `/api/v1/targets/{id}/devices` | Cadastrar dispositivo em alvo |
-| `GET` | `/api/v1/devices/{id}/custody` | Histórico de custódia |
-| `POST` | `/api/v1/devices/{id}/custody` | Registrar movimentação |
+| `GET/POST` | `/api/v1/operations` | Listar / Criar operações |
+| `GET` | `/api/v1/operations/{id}` | Dashboard da operação |
+| `GET/POST` | `/api/v1/targets` | Alvos (com filtro por operação) |
+| `GET/POST` | `/api/v1/devices` | Dispositivos |
+| `GET/POST` | `/api/v1/devices/{id}/custody` | Histórico / Registrar movimentação |
 | `GET` | `/api/v1/devices/{id}/timeline` | Timeline visual de custódia |
 | `POST` | `/api/v1/devices/{id}/photos` | Upload de fotografia |
-| `POST` | `/api/v1/devices/{id}/reports` | Criar laudo pericial |
-| `POST` | `/api/v1/devices/{id}/hashes` | Registrar hash de integridade |
-| `GET` | `/api/v1/audit` | Log de auditoria (somente leitura) |
-| `GET` | `/health` | Health check do serviço |
+| `GET/POST` | `/api/v1/operations/{id}/teams` | Equipes de deflagração |
+| `POST` | `/api/v1/field-sessions` | Criar sessão de coleta (mobile) |
+| `POST` | `/api/v1/field-sessions/{id}/sync` | Sincronizar fotos do app mobile |
+| `GET` | `/api/v1/statistics/general` | Relatório estatístico geral |
+| `GET` | `/api/v1/statistics/operation/{id}` | Relatório estatístico por operação |
+| `GET` | `/api/v1/audit` | Log de auditoria |
+| `GET` | `/health` | Health check |
 
-### Autenticação nas chamadas
+---
 
-Todas as rotas (exceto `/auth/login` e `/health`) exigem o header:
+## App Mobile (Flutter)
 
+O aplicativo Android para coleta guiada de fotografias forenses em campo.
+
+### Instalação
+
+```bash
+cd mobile
+flutter pub get
+flutter run                    # Emulador Android
+flutter run --device-id <id>   # Dispositivo físico
 ```
-Authorization: Bearer <access_token>
+
+### Configuração de Rede
+
+Edite `lib/core/api/client.dart`:
+
+```dart
+// Para emulador Android (aponta para o host):
+static const String _baseUrl = 'http://10.0.2.2:8000/api/v1';
+
+// Para dispositivo físico (usar IP da máquina na rede local):
+static const String _baseUrl = 'http://192.168.0.X:8000/api/v1';
 ```
+
+### Funcionalidades do App
+
+| Feature | Tecnologia |
+|---------|-----------|
+| Autenticação JWT | flutter_secure_storage + Dio interceptor |
+| Banco offline | SQLite (sqflite) |
+| Câmera | camera plugin |
+| GPS por foto | geolocator |
+| OCR IMEI/Serial | Google ML Kit (offline) |
+| Hash SHA-256 | crypto package |
+| Sincronização | Batch upload via `/field-sessions/{id}/sync` |
+
+### As 8 Etapas Guiadas
+
+| # | Etapa | Obrigatória |
+|---|-------|:-----------:|
+| 1 | Contexto (evidência como encontrada) | ✅ |
+| 2 | Ambiente amplo | ✅ |
+| 3 | Frente do dispositivo | ✅ |
+| 4 | Traseira do dispositivo | ✅ |
+| 5 | Laterais | ❌ |
+| 6 | Número de série / IMEI (com OCR) | ✅ |
+| 7 | Dispositivo lacrado | ✅ |
+| 8 | Fotos adicionais | ❌ |
 
 ---
 
 ## Controle de Acesso (RBAC)
 
-O sistema possui 5 papéis hierárquicos:
-
-| Papel | Identificador | Permissões |
-|-------|--------------|-----------|
-| **Administrador** | `admin` | Acesso total, gestão de usuários |
-| **Custódia** | `custody` | Registrar movimentações, ver dispositivos |
-| **Perito** | `expert` | Criar laudos, registrar hashes |
-| **Analista** | `analyst` | Leitura completa, registrar hashes |
-| **Auditor** | `auditor` | Somente log de auditoria |
+| Papel | Código | Permissões |
+|-------|--------|-----------|
+| **Administrador** | `admin` | Acesso total, gestão de usuários e operações |
+| **Custódia** | `custody` | Registrar movimentações, visualizar dispositivos |
+| **Perito** | `expert` | Criar documentos e laudos, registrar hashes |
+| **Analista** | `analyst` | Leitura completa, registrar hashes, usar app mobile |
+| **Auditor** | `auditor` | Somente visualizar log de auditoria |
 
 ---
 
-## Princípios de Segurança
+## Princípios de Segurança Forense
 
-O sistema foi projetado com os seguintes princípios de integridade forense:
+1. **Imutabilidade da Auditoria** — Todo log de auditoria é append-only, sem possibilidade de edição ou exclusão.
 
-1. **Imutabilidade do Log de Auditoria** — Nenhum registro de auditoria pode ser alterado ou excluído. Todas as ações são persistidas com timestamp e identificação do usuário.
+2. **Cadeia de Custódia Append-Only** — Movimentações de custódia são imutáveis. O histórico integral é preservado.
 
-2. **Cadeia de Custódia Imutável** — Movimentações de custódia são append-only. O histórico completo é preservado integralmente.
+3. **Soft Delete** — Nenhum registro de negócio é deletado fisicamente. São marcados com `deleted_at`, preservando rastreabilidade.
 
-3. **Soft Delete** — Registros de negócio (operações, alvos, dispositivos, etc.) nunca são deletados fisicamente. São marcados com `deleted_at` para preservar rastreabilidade.
+4. **Integridade por Hash** — SHA-256 obrigatório nos hashes de integridade; verificável a qualquer momento.
 
-4. **Hashes SHA-256 Obrigatórios** — O campo `sha256` é obrigatório no registro de integridade, garantindo a verificabilidade da evidência digital.
+5. **Hash das Fotografias Forenses** — O app mobile calcula SHA-256 de cada foto antes do envio. O servidor verifica o hash ao receber, garantindo integridade da imagem.
 
-5. **QR Code por Evidência** — Cada dispositivo recebe um QR Code gerado automaticamente, vinculando o código físico ao registro digital no sistema.
+6. **GPS nas Fotos** — Coordenadas GPS são capturadas e registradas com cada fotografia coletada em campo.
 
-6. **JWT com Renovação Automática** — O frontend renova o token automaticamente antes da expiração, sem interrupção do trabalho do perito.
+7. **QR Code por Evidência** — Cada dispositivo recebe QR Code único vinculando o item físico ao registro digital.
+
+8. **JWT com Refresh Automático** — Sessão renovada automaticamente sem interrupção do trabalho pericial.
+
+9. **Controle de Acesso a Documentos** — Apenas o autor ou administrador pode remover documentos periciais.
 
 ---
 
@@ -526,12 +459,23 @@ O sistema foi projetado com os seguintes princípios de integridade forense:
 
 Em caso de problemas, verifique:
 
-1. **Logs do backend**: `docker compose logs -f backend`
-2. **Logs do banco**: `docker compose logs -f db`
-3. **Health check da API**: `curl http://localhost:8000/health`
-4. **Console do MinIO**: `http://localhost:9001` (usuário: `minioadmin`)
+```bash
+# Logs dos serviços
+docker compose logs -f backend
+docker compose logs -f db
+
+# Health check
+curl http://localhost:8000/health
+
+# Console MinIO
+open http://localhost:9001
+# Usuário: minioadmin
+
+# Migração manual do banco
+docker exec cadeia_backend alembic upgrade head
+```
 
 ---
 
 > Sistema desenvolvido para uso institucional em perícia forense digital.  
-> Todas as ações realizadas são registradas e auditáveis.
+> Versão 1.3.0 — Todas as ações são registradas e auditáveis.
