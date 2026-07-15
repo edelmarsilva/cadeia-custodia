@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Cpu, Users, FileText, TrendingUp,
   Smartphone, HardDrive, Usb, Monitor, Plus, Edit3, Archive,
   X, Save, ExternalLink, UserPlus, UserX, Shield, Download, Trash2, Target,
-  CheckCircle2, RefreshCw,
+  CheckCircle2, RefreshCw, QrCode, Printer,
 } from 'lucide-react';
-import { operationsApi, targetsApi, devicesApi, operationUsersApi, usersApi, deploymentTeamsApi, reportTemplatesApi } from '@/api/endpoints';
+import { operationsApi, targetsApi, devicesApi, operationUsersApi, usersApi, deploymentTeamsApi, reportTemplatesApi, fieldSessionsApi } from '@/api/endpoints';
 import type { OperationDashboard, Target as TargetType, Device, User, Document, DeploymentTeam } from '@/types';
 import { formatDate } from '@/utils/format';
 import {
@@ -1395,6 +1395,58 @@ function DeploymentTeamsTab({ operationId, targets }: { operationId: string; tar
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
 
+  // ── QR Code Modal ─────────────────────────────────────────────────
+  const [qrModal, setQrModal] = useState<{
+    visible: boolean;
+    loading: boolean;
+    imageB64: string | null;
+    operationName: string;
+    teamName: string;
+    targetName: string;
+    teamId: string;
+    targetId: string;
+  }>({ visible: false, loading: false, imageB64: null, operationName: '', teamName: '', targetName: '', teamId: '', targetId: '' });
+
+  const handleGenerateQr = async (teamId: string, targetId: string, teamName: string, targetName: string) => {
+    setQrModal({ visible: true, loading: true, imageB64: null, operationName: '', teamName, targetName, teamId, targetId });
+    try {
+      const res = await fieldSessionsApi.generateQrCode(operationId, teamId, targetId);
+      setQrModal((prev) => ({ ...prev, loading: false, imageB64: res.data.qr_image_base64, operationName: res.data.operation_name }));
+    } catch {
+      toast.error('Erro ao gerar QR Code.');
+      setQrModal((prev) => ({ ...prev, visible: false, loading: false }));
+    }
+  };
+
+  const handleDownloadQr = () => {
+    if (!qrModal.imageB64) return;
+    const a = document.createElement('a');
+    a.href = `data:image/png;base64,${qrModal.imageB64}`;
+    a.download = `qrcode_${qrModal.teamName}_${qrModal.targetName}.png`.replace(/\s+/g, '_');
+    a.click();
+  };
+
+  const handlePrintQr = () => {
+    if (!qrModal.imageB64) return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>QR Code de Campo</title>
+      <style>body{font-family:sans-serif;text-align:center;padding:24px} h2{margin-bottom:4px} p{color:#666;font-size:13px;margin:2px 0}</style>
+      </head><body>
+        <h2>QR Code de Miss\u00e3o</h2>
+        <p>${qrModal.operationName}</p>
+        <p><strong>${qrModal.teamName}</strong> — ${qrModal.targetName}</p>
+        <br/>
+        <img src="data:image/png;base64,${qrModal.imageB64}" style="width:300px;height:300px" />
+        <br/><br/>
+        <p style="font-size:11px;color:#999">Escaneie este QR Code com o app Cadeia de Cust\u00f3dia — Campo</p>
+      </body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
   useEffect(() => {
     Promise.all([deploymentTeamsApi.list(operationId), usersApi.listAll()])
       .then(([tr, ur]) => { setTeams(tr.data); setAllUsers(ur.data.items || []); })
@@ -1470,6 +1522,68 @@ function DeploymentTeamsTab({ operationId, targets }: { operationId: string; tar
 
   return (
     <div>
+      {/* ── QR Code Modal ────────────────────────────────────────── */}
+      {qrModal.visible && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.72)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+        }} onClick={() => setQrModal((p) => ({ ...p, visible: false }))}>
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 16,
+            padding: '28px 32px',
+            minWidth: 380,
+            maxWidth: 440,
+            boxShadow: '0 25px 60px rgba(0,0,0,0.5)',
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>QR Code de Missão</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                  {qrModal.teamName} — {qrModal.targetName}
+                </p>
+              </div>
+              <button className="btn btn-ghost btn-icon" onClick={() => setQrModal((p) => ({ ...p, visible: false }))}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {qrModal.loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '32px 0' }}>
+                <div style={{ width: 36, height: 36, border: '3px solid var(--color-primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Gerando QR Code...</p>
+              </div>
+            ) : qrModal.imageB64 ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                  <div style={{ background: '#fff', padding: 12, borderRadius: 12, display: 'inline-block' }}>
+                    <img
+                      src={`data:image/png;base64,${qrModal.imageB64}`}
+                      alt="QR Code de missão"
+                      style={{ width: 260, height: 260, display: 'block' }}
+                    />
+                  </div>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginBottom: 16 }}>
+                  Escaneie com o app <strong>Cadeia de Custódia — Campo</strong>
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-secondary btn-sm" style={{ flex: 1, gap: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handleDownloadQr}>
+                    <Download size={14} /> Baixar PNG
+                  </button>
+                  <button className="btn btn-primary btn-sm" style={{ flex: 1, gap: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handlePrintQr}>
+                    <Printer size={14} /> Imprimir
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       <div className="card-header" style={{ marginBottom: 16 }}>
         <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Shield size={16} /> Equipes de Deflagração <span className="badge badge-neutral">{teams.length}</span>
@@ -1627,7 +1741,7 @@ function DeploymentTeamsTab({ operationId, targets }: { operationId: string; tar
                                   key={ta.id}
                                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-surface-2)', borderRadius: 8, gap: 8 }}
                                 >
-                                  <div style={{ minWidth: 0 }}>
+                                  <div style={{ minWidth: 0, flex: 1 }}>
                                     <Link
                                       to={`/targets/${ta.target_id}`}
                                       style={{ fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 500, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
@@ -1638,15 +1752,25 @@ function DeploymentTeamsTab({ operationId, targets }: { operationId: string; tar
                                       <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>"{nickname}"</div>
                                     )}
                                   </div>
-                                  <button
-                                    id={`rm-tgt-${ta.id}`}
-                                    onClick={() => handleRemoveTarget(team, ta.target_id)}
-                                    className="btn btn-ghost btn-icon btn-sm"
-                                    style={{ flexShrink: 0 }}
-                                    title="Remover alvo"
-                                  >
-                                    <X size={12} color="var(--color-danger)" />
-                                  </button>
+                                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                                    <button
+                                      id={`qr-tgt-${ta.id}`}
+                                      onClick={() => handleGenerateQr(team.id, ta.target_id, team.name, name as string)}
+                                      className="btn btn-ghost btn-icon btn-sm"
+                                      title="Gerar QR Code de Campo"
+                                      style={{ color: 'var(--color-primary)' }}
+                                    >
+                                      <QrCode size={13} />
+                                    </button>
+                                    <button
+                                      id={`rm-tgt-${ta.id}`}
+                                      onClick={() => handleRemoveTarget(team, ta.target_id)}
+                                      className="btn btn-ghost btn-icon btn-sm"
+                                      title="Remover alvo"
+                                    >
+                                      <X size={12} color="var(--color-danger)" />
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             })}
