@@ -1,5 +1,5 @@
 name: cadeia_custodia_mobile
-description: Aplicativo mobile de coleta guiada de fotografias forenses de apreensão para o Sistema de Cadeia de Custódia de Evidências Digitais.
+description: Aplicativo mobile de coleta guiada de fotografias forenses de apreensão para o Sistema de Cadeia de Custódia de Evidências Digitais. Operação 100% offline — configurado via QR Code e exporta dados como pacote ZIP.
 version: 1.0.0+1
 
 environment:
@@ -10,43 +10,38 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # HTTP e Autenticação
-  dio: ^5.6.0
-  flutter_secure_storage: ^9.2.2
-
   # Banco de dados local (offline)
   sqflite: ^2.3.3+1
   path: ^1.9.0
   path_provider: ^2.1.3
 
-  # Câmera e Mídia
+  # Câmera — foto forense
   camera: ^0.11.0+2
-  image_picker: ^1.1.2
   image: ^4.2.0
 
-  # GPS
+  # GPS — coordenadas forenses
   geolocator: ^12.0.0
 
-  # OCR (Google ML Kit — offline)
+  # QR Code Scanner (offline, sem Google Play Services)
+  mobile_scanner: ^5.2.3
+
+  # OCR — IMEI / Serial Number (Google ML Kit, offline)
   google_mlkit_text_recognition: ^0.14.0
 
-  # Criptografia e Hashing
+  # Criptografia — SHA-256
   crypto: ^3.0.5
 
-  # Conectividade
-  connectivity_plus: ^6.0.3
+  # Geração do pacote ZIP de exportação
+  archive: ^3.6.1
 
-  # Gerenciamento de Estado
-  flutter_riverpod: ^2.5.1
+  # Compartilhamento via Android Share Sheet
+  share_plus: ^9.0.0
 
-  # Navegação
-  go_router: ^14.2.7
+  # Permissões
+  permission_handler: ^11.3.1
 
   # UI
   cupertino_icons: ^1.0.8
-  flutter_svg: ^2.0.10+1
-  cached_network_image: ^3.3.1
-  permission_handler: ^11.3.1
 
 dev_dependencies:
   flutter_test:

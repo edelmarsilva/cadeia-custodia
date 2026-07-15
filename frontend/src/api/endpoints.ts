@@ -273,3 +273,31 @@ export const statsApi = {
   operation: (operationId: string) =>
     api.get<OperationStats>(`/operations/${operationId}/stats`),
 };
+
+export interface FieldQrCodeResponse {
+  qr_payload_b64: string;
+  qr_image_base64: string;
+  operation_name: string;
+  team_name: string;
+  target_name: string;
+}
+
+export const fieldSessionsApi = {
+  /** Gera QR Code de missão para o app mobile (offline provisioning). */
+  generateQrCode: (operationId: string, teamId: string, targetId: string) =>
+    api.get<FieldQrCodeResponse>('/field-sessions/qrcode', {
+      params: { operation_id: operationId, team_id: teamId, target_id: targetId },
+    }),
+
+  /** Importa pacote ZIP exportado pelo app mobile. */
+  importZip: (file: File, onProgress?: (pct: number) => void) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/field-sessions/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e) => {
+        if (e.total && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      },
+    });
+  },
+};

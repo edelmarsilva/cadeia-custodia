@@ -3,17 +3,20 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Shield, LayoutDashboard, Briefcase, Users, Cpu,
   Link2, FileText, Hash, BookOpen, UserCog, LogOut,
-  ChevronRight, ChevronDown, Gavel, History, Search, BarChart2,
+  ChevronRight, ChevronDown, Gavel, History, Search, BarChart2, Upload,
 } from 'lucide-react';
 import { useAuthStore } from '@/store';
 import { initials } from '@/utils/format';
 import { ROLE_LABELS } from '@/utils/labels';
+
+const NAV_IMPORT_ROLES = ['admin', 'expert', 'analyst', 'custody'];
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
   { label: 'Operações', icon: Briefcase, to: '/operations' },
   { label: 'Pesquisa de Alvos', icon: Search, to: '/targets/search' },
   { label: 'Relatórios Estatísticos', icon: BarChart2, to: '/relatorios/estatisticos' },
+  { label: 'Importar Coleta', icon: Upload, to: '/campo/importar', roles: NAV_IMPORT_ROLES },
   { label: 'Alvos', icon: Users, to: '/targets', hidden: true },
   { label: 'Dispositivos', icon: Cpu, to: '/devices', hidden: true },
 ];
@@ -40,7 +43,7 @@ export default function Sidebar() {
     navigate('/login');
   };
 
-  const visibleNavItems = navItems.filter((i) => !i.hidden);
+  const visibleNavItems = navItems.filter((i) => !i.hidden && (!i.roles || i.roles.includes(user?.role || '')));
   const showPericia = periciaRoles.includes(user?.role || '');
 
   return (

@@ -23,6 +23,7 @@ import GenerateReportPage from '@/pages/GenerateReportPage';
 import GenerateDocumentPage from '@/pages/GenerateDocumentPage';
 import GeneratedReportsPage from '@/pages/GeneratedReportsPage';
 import StatisticsPage from '@/pages/StatisticsPage';
+import FieldImportPage from '@/pages/FieldImportPage';
 
 export default function App() {
   return (
@@ -46,6 +47,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/campo/importar" element={<FieldImportPage />} />
 
           {/* Operations */}
           <Route path="/operations" element={<OperationsPage />} />
