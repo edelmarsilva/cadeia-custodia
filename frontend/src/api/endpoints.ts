@@ -75,10 +75,16 @@ export const devicesApi = {
     api.get<PaginatedResponse<Device>>(`/targets/${targetId}/devices`, { params }),
   listByOperation: (operationId: string, params?: { page?: number }) =>
     api.get<PaginatedResponse<Device>>(`/operations/${operationId}/devices`, { params }),
+  listAll: (params?: { page?: number; page_size?: number; search?: string; device_type?: string; status?: string }) =>
+    api.get<PaginatedResponse<Device>>('/devices', { params }),
+  nextEvidenceNumber: () =>
+    api.get<{ next: string }>('/devices/next-evidence-number'),
   create: (targetId: string, data: object) =>
     api.post<Device>(`/targets/${targetId}/devices`, data),
   createForOperation: (operationId: string, data: object) =>
     api.post<Device>(`/operations/${operationId}/devices`, data),
+  createStandalone: (data: object) =>
+    api.post<Device>('/devices', data),
   get: (id: string) => api.get<Device>(`/devices/${id}`),
   update: (id: string, data: object) => api.patch<Device>(`/devices/${id}`, data),
   delete: (id: string) => api.delete(`/devices/${id}`),

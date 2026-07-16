@@ -135,7 +135,7 @@ class TargetResponse(BaseModel):
 
 # ── Device ──────────────────────────────────────────────────────
 class DeviceCreate(BaseModel):
-    evidence_number: str
+    evidence_number: str | None = None  # gerado automaticamente se não informado
     seal_number: str | None = None
     device_type: str
     brand: str | None = None
@@ -166,7 +166,7 @@ class DeviceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
     target_id: uuid.UUID | None
-    operation_id: uuid.UUID
+    operation_id: uuid.UUID | None
     evidence_number: str
     seal_number: str | None
     qr_code_url: str | None

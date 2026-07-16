@@ -16,8 +16,8 @@ class Device(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     target_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("targets.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    operation_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("operations.id", ondelete="CASCADE"), nullable=False, index=True
+    operation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("operations.id", ondelete="SET NULL"), nullable=True, index=True
     )
 
     # Identification
@@ -61,7 +61,7 @@ class Device(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
 
     # Relationships
     target: Mapped["Target | None"] = relationship("Target", back_populates="devices")  # type: ignore[name-defined]
-    operation: Mapped["Operation"] = relationship("Operation", back_populates="devices")  # type: ignore[name-defined]
+    operation: Mapped["Operation | None"] = relationship("Operation", back_populates="devices")  # type: ignore[name-defined]
     custody_movements: Mapped[list["CustodyMovement"]] = relationship(  # type: ignore[name-defined]
         "CustodyMovement", back_populates="device", cascade="all, delete-orphan"
     )

@@ -18,7 +18,7 @@ const navItems = [
   { label: 'Relatórios Estatísticos', icon: BarChart2, to: '/relatorios/estatisticos' },
   { label: 'Importar Coleta', icon: Upload, to: '/campo/importar', roles: NAV_IMPORT_ROLES },
   { label: 'Alvos', icon: Users, to: '/targets', hidden: true },
-  { label: 'Dispositivos', icon: Cpu, to: '/devices', hidden: true },
+  { label: 'Dispositivos', icon: Cpu, to: '/devices' },
 ];
 
 const systemItems = [

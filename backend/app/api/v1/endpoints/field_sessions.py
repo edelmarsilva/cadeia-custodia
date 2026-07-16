@@ -150,13 +150,14 @@ async def generate_field_qrcode(
     payload_b64 = base64.b64encode(payload_json.encode()).decode()
     qr_image_b64 = _generate_qr_image_b64(payload_b64)
 
-    await audit_service.log(
-        db=db,
+    await audit_service.log_action(
+        session=db,
         user_id=uuid.UUID(current_user["sub"]),
+        username=current_user.get("username", ""),
         action="GENERATE_FIELD_QRCODE",
-        resource_type="field_session_qrcode",
-        resource_id=str(target_id),
-        details={"operation": op.name, "team": team.name, "target": target.full_name},
+        entity_type="field_session_qrcode",
+        entity_id=str(target_id),
+        description=f"QR Code gerado: operação={op.name}, equipe={team.name}, alvo={target.full_name}",
     )
 
     return FieldQrCodeResponse(

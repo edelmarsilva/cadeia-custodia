@@ -14,6 +14,7 @@ import TargetSearchPage from '@/pages/TargetSearchPage';
 import DeploymentTeamFormPage from '@/pages/DeploymentTeamFormPage';
 import DeviceDetailPage from '@/pages/DeviceDetailPage';
 import DeviceFormPage from '@/pages/DeviceFormPage';
+import DevicesPage from '@/pages/DevicesPage';
 import CustodyMovementFormPage from '@/pages/CustodyMovementFormPage';
 import AuditPage from '@/pages/AuditPage';
 import UsersPage from '@/pages/UsersPage';
@@ -65,6 +66,8 @@ export default function App() {
           <Route path="/operations/:operationId/teams/:teamId/edit" element={<DeploymentTeamFormPage />} />
 
           {/* Devices */}
+          <Route path="/devices" element={<DevicesPage />} />
+          <Route path="/devices/new" element={<DeviceFormPage />} />
           <Route path="/targets/:targetId/devices/new" element={<DeviceFormPage />} />
           <Route path="/operations/:operationId/devices/new" element={<DeviceFormPage />} />
           <Route path="/devices/:id" element={<DeviceDetailPage />} />

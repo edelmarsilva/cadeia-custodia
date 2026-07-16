@@ -1,0 +1,132 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV FLUTTER_VERSION=3.27.0
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV FLUTTER_HOME=/opt/flutter
+ENV PATH="${FLUTTER_HOME}/bin:${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+
+# ── Multiarch para rodar gen_snapshot x64 em container ARM64 ─────────────────
+RUN dpkg --add-architecture amd64 && \
+    sed -i 's/deb http/deb [arch=arm64] http/g' /etc/apt/sources.list && \
+    echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list && \
+    echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    libc6:amd64 \
+    curl git unzip xz-utils zip \
+    openjdk-17-jdk-headless \
+    wget ca-certificates \
+    libglu1-mesa \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Android SDK Command-line Tools ──────────────────────────────────────────
+RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
+    cd /tmp && \
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip && \
+    unzip -q cmdline-tools.zip && \
+    mv cmdline-tools ${ANDROID_SDK_ROOT}/cmdline-tools/latest && \
+    rm cmdline-tools.zip
+
+# ── Android SDK packages ─────────────────────────────────────────────────────
+RUN yes | sdkmanager --licenses > /dev/null 2>&1 && \
+    sdkmanager \
+        "platform-tools" \
+        "platforms;android-35" \
+        "build-tools;35.0.0"
+
+# ── Flutter SDK ──────────────────────────────────────────────────────────────
+RUN git clone --depth 1 --branch ${FLUTTER_VERSION} \
+    https://github.com/flutter/flutter.git ${FLUTTER_HOME}
+
+# Pré-aquecer Flutter (sem analytics, sem telemetria)
+RUN flutter config --no-analytics && \
+    flutter config --no-cli-animations && \
+    flutter precache --android
+
+# ── Workaround para Flutter Engine em arquitetura ARM64 Linux ────────────────
+# Cria links simbólicos apontando linux-arm64 para as ferramentas de compilação linux-x64,
+# permitindo a execução transparente via binfmt_misc/QEMU do host.
+RUN cd /opt/flutter/bin/cache/artifacts/engine && \
+    for dir in android-arm-profile android-arm-release android-arm64-profile android-arm64-release android-x64-profile android-x64-release; do \
+        if [ -d "$dir/linux-x64" ]; then \
+            ln -s linux-x64 "$dir/linux-arm64"; \
+        fi \
+    done
+
+# ── Criar projeto Flutter limpo para obter estrutura Android ─────────────────
+WORKDIR /tmp/template
+RUN flutter create --platforms=android --org br.mp.ac.cadeia cadeia_tmp
+
+# ── Copiar código fonte da aplicação ─────────────────────────────────────────
+WORKDIR /app
+
+# Copia estrutura Android gerada
+RUN cp -r /tmp/template/cadeia_tmp/android ./android
+
+# Copia fonte do projeto
+COPY . .
+
+# ── Garantir diretórios de assets ────────────────────────────────────────────
+RUN mkdir -p assets/images assets/icons
+
+# ── Ajustar AndroidManifest com permissões necessárias ───────────────────────
+RUN cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Câmera -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <!-- GPS -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Armazenamento -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+
+    <application
+        android:label="Cadeia de Custódia"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+    </queries>
+</manifest>
+EOF
+
+# ── Regras do Proguard para evitar erros de R8 no ML Kit ─────────────────────
+RUN mkdir -p android/app && \
+    echo "-dontwarn com.google.mlkit.vision.text.**" > android/app/proguard-rules.pro
+
+# ── Build APK release ────────────────────────────────────────────────────────
+RUN flutter pub get && \
+    flutter build apk --release --no-tree-shake-icons
+
+CMD ["sh", "-c", "cp build/app/outputs/flutter-apk/app-release.apk /output/cadeia-custodia.apk && echo 'APK copiado com sucesso para /output/cadeia-custodia.apk'"]

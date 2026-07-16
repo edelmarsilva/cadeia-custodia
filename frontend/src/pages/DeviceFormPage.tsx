@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, Cpu, User, Shield, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Cpu, User, Shield, AlertTriangle, CheckCircle, Loader2, Hash } from 'lucide-react';
 import { devicesApi, targetsApi, operationsApi, hashesApi } from '@/api/endpoints';
 import toast from 'react-hot-toast';
 import { DEVICE_TYPE_LABELS } from '@/utils/labels';
@@ -139,6 +139,7 @@ export default function DeviceFormPage() {
   // Suporta duas rotas:
   //   /targets/:targetId/devices/new  → vincula ao alvo (legado)
   //   /operations/:operationId/devices/new → cadastra sem alvo obrigatório
+  //   /devices/new → cadastro avulso (sem operação nem alvo)
   const { targetId, operationId } = useParams<{ targetId?: string; operationId?: string }>();
   const navigate = useNavigate();
 
@@ -147,14 +148,16 @@ export default function DeviceFormPage() {
   const [targets, setTargets] = useState<Target[]>([]);
   const [selectedTargetId, setSelectedTargetId] = useState<string>('');
   const [operationName, setOperationName] = useState('');
+  const [nextEvidenceNumber, setNextEvidenceNumber] = useState<string>('');
+  const [loadingEvidence, setLoadingEvidence] = useState(true);
 
   const [form, setForm] = useState({
-    evidence_number: '', seal_number: '', device_type: 'smartphone',
+    seal_number: '', device_type: 'smartphone',
     brand: '', model: '', serial_number: '', color: '',
     seizure_date: '', seizure_location: '', seizure_observations: '',
     status: 'seized',
   });
-  const [extraData, setExtraData] = useState<Record<string, string>>({});
+  const [extraData, setExtraData] = useState<Record<string, string>>({});;
 
   // ── Estado de hash ────────────────────────────────────────────
   const [hashData, setHashData] = useState({ md5: '', sha1: '', sha256: '', source_file: '' });
@@ -163,6 +166,15 @@ export default function DeviceFormPage() {
   const set = (f: string, v: string) => setForm((p) => ({ ...p, [f]: v }));
   const setExtra = (k: string, v: string) => setExtraData((p) => ({ ...p, [k]: v }));
   const extraFields = EXTRA_FIELDS[form.device_type] || [];
+
+  // Busca preview do próximo número de evidência
+  useEffect(() => {
+    setLoadingEvidence(true);
+    devicesApi.nextEvidenceNumber()
+      .then((res) => setNextEvidenceNumber(res.data.next))
+      .catch(() => setNextEvidenceNumber('MPAC-EV-?????'))
+      .finally(() => setLoadingEvidence(false));
+  }, []);
 
   const handleConflict = useCallback((key: 'md5' | 'sha1' | 'sha256', conflict: HashConflict | null) => {
     setHashConflicts((prev) => {
@@ -217,6 +229,7 @@ export default function DeviceFormPage() {
         seizure_location: form.seizure_location || null,
         seizure_observations: form.seizure_observations || null,
         extra_data: Object.keys(extraData).length > 0 ? extraData : null,
+        // evidence_number omitido → gerado automaticamente pelo backend
       };
 
       let res;
@@ -229,8 +242,8 @@ export default function DeviceFormPage() {
           res = await devicesApi.createForOperation(operationId, payload);
         }
       } else {
-        toast.error('Rota inválida.');
-        return;
+        // Rota avulsa /devices/new
+        res = await devicesApi.createStandalone(payload);
       }
 
       // Se hash informado, registra após criar o dispositivo
@@ -267,6 +280,8 @@ export default function DeviceFormPage() {
             <p className="page-subtitle">
               {operationId && operationName ? (
                 <>Operação: <strong>{operationName}</strong></>
+              ) : !operationId && !targetId ? (
+                'Cadastro avulso — sem vinculação a operação'
               ) : (
                 'Cadastre um dispositivo apreendido'
               )}
@@ -322,12 +337,27 @@ export default function DeviceFormPage() {
             <div className="card-title">Identificação</div>
           </div>
 
-          <div className="form-grid">
-            <div className="form-group">
-              <label className="form-label">Nº da Evidência *</label>
-              <input className="form-input font-mono" value={form.evidence_number} onChange={(e) => set('evidence_number', e.target.value)} required placeholder="EV-2024-0001" />
-              <div className="form-hint">Identificador único no sistema</div>
+          {/* Nº de Evidência — gerado automaticamente */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 16px', borderRadius: 10, marginBottom: 20,
+            background: 'var(--bg-surface-2)', border: '1px solid var(--border)',
+          }}>
+            <Hash size={18} color="var(--color-accent)" style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
+                Nº de Evidência (gerado automaticamente)
+              </div>
+              <div className="font-mono" style={{ fontSize: 18, fontWeight: 700, color: 'var(--color-accent)', letterSpacing: '0.04em' }}>
+                {loadingEvidence ? (
+                  <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>Calculando...</span>
+                ) : nextEvidenceNumber}
+              </div>
             </div>
+            <CheckCircle size={16} color="var(--color-success, #16a34a)" />
+          </div>
+
+          <div className="form-grid">
             <div className="form-group">
               <label className="form-label">Nº do Lacre</label>
               <input className="form-input font-mono" value={form.seal_number} onChange={(e) => set('seal_number', e.target.value)} placeholder="LAC-0001" />
