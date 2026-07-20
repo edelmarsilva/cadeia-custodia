@@ -1,195 +1,82 @@
 #0 building with "desktop-linux" instance using docker driver
 
 #1 [internal] load build definition from Dockerfile.apk
-#1 transferring dockerfile: 6.82kB done
+#1 DONE 0.0s
+
+#1 [internal] load build definition from Dockerfile.apk
+#1 transferring dockerfile: 17.67kB done
 #1 DONE 0.0s
 
 #2 [auth] library/ubuntu:pull token for registry-1.docker.io
 #2 DONE 0.0s
 
 #3 [internal] load metadata for docker.io/library/ubuntu:22.04
-#3 DONE 2.2s
+#3 DONE 1.7s
 
 #4 [internal] load .dockerignore
 #4 transferring context: 2B done
 #4 DONE 0.0s
 
-#5 [ 1/16] FROM docker.io/library/ubuntu:22.04@sha256:0e0a0fc6d18feda9db1590da249ac93e8d5abfea8f4c3c0c849ce512b5ef8982
+#5 [ 1/26] FROM docker.io/library/ubuntu:22.04@sha256:0e0a0fc6d18feda9db1590da249ac93e8d5abfea8f4c3c0c849ce512b5ef8982
 #5 DONE 0.0s
 
 #6 [internal] load build context
-#6 transferring context: 8.75kB done
+#6 transferring context: 19.77kB done
 #6 DONE 0.0s
 
-#7 [10/16] WORKDIR /app
+#7 [13/26] RUN if [ ! -d cadeia_tmp/android ]; then       mkdir -p cadeia_tmp/android/app/src/main &&       echo 'include ":app"' > cadeia_tmp/android/settings.gradle &&       echo 'buildscript { repositories { google(); mavenCentral() } dependencies { classpath "com.android.tools.build:gradle:8.1.0"; classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22" } }' > cadeia_tmp/android/build.gradle &&       echo 'apply plugin: "com.android.application"\napply plugin: "kotlin-android"\napply plugin: "dev.flutter.flutter-gradle-plugin"\nandroid { compileSdk 35\n namespace "br.mp.ac.cadeia.cadeia_tmp"\n defaultConfig { applicationId "br.mp.ac.cadeia.cadeia_tmp"\n minSdk 21\n targetSdk 35 } }' > cadeia_tmp/android/app/build.gradle;     fi
 #7 CACHED
 
-#8 [ 4/16] RUN yes | sdkmanager --licenses > /dev/null 2>&1 &&     sdkmanager         "platform-tools"         "platforms;android-35"         "build-tools;35.0.0"
+#8 [ 8/26] RUN sed -i 's/void main(List<String> args) async {/import "dart:io"; class TrustAllOverrides extends HttpOverrides { @override HttpClient createHttpClient(SecurityContext? c) => super.createHttpClient(c)..badCertificateCallback = (X509Certificate cert, String host, int port) => true; } void main(List<String> args) async { HttpOverrides.global = TrustAllOverrides();/g' /opt/flutter/packages/flutter_tools/bin/executable.dart 2>/dev/null || true &&     sed -i 's/Future<void> main(List<String> args) async {/import "dart:io"; class TrustAllOverrides extends HttpOverrides { @override HttpClient createHttpClient(SecurityContext? c) => super.createHttpClient(c)..badCertificateCallback = (X509Certificate cert, String host, int port) => true; } Future<void> main(List<String> args) async { HttpOverrides.global = TrustAllOverrides();/g' /opt/flutter/packages/flutter_tools/lib/executable.dart 2>/dev/null || true &&     sed -i 's/Downloading Material fonts.../Simulating Material fonts.../g' /opt/flutter/packages/flutter_tools/lib/src/cache.dart 2>/dev/null || true &&     sed -i 's/await _downloadZip/print("Skipping zip download"); \/\/ await _downloadZip/g' /opt/flutter/packages/flutter_tools/lib/src/cache.dart 2>/dev/null || true &&     rm -rf /opt/flutter/bin/cache/flutter_tools.stamp /opt/flutter/bin/cache/flutter_tools.snapshot &&     flutter --version
 #8 CACHED
 
-#9 [ 2/16] RUN dpkg --add-architecture amd64 &&     sed -i 's/deb http/deb [arch=arm64] http/g' /etc/apt/sources.list &&     echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list &&     echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list &&     echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list &&     apt-get update && apt-get install -y --no-install-recommends     libc6:amd64     curl git unzip xz-utils zip     openjdk-17-jdk-headless     wget ca-certificates     libglu1-mesa     && rm -rf /var/lib/apt/lists/*
+#9 [14/26] WORKDIR /app
 #9 CACHED
 
-#10 [ 6/16] RUN flutter config --no-analytics &&     flutter config --no-cli-animations &&     flutter precache --android
+#10 [11/26] WORKDIR /tmp/template
 #10 CACHED
 
-#11 [ 7/16] RUN cd /opt/flutter/bin/cache/artifacts/engine &&     for dir in android-arm-profile android-arm-release android-arm64-profile android-arm64-release android-x64-profile android-x64-release; do         if [ -d "$dir/linux-x64" ]; then             ln -s linux-x64 "$dir/linux-arm64";         fi     done
+#11 [ 4/26] RUN mkdir -p /opt/android-sdk/cmdline-tools &&     cd /tmp &&     wget --no-check-certificate -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip &&     unzip -q cmdline-tools.zip &&     mv cmdline-tools /opt/android-sdk/cmdline-tools/latest &&     rm cmdline-tools.zip
 #11 CACHED
 
-#12 [ 3/16] RUN mkdir -p /opt/android-sdk/cmdline-tools &&     cd /tmp &&     wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip &&     unzip -q cmdline-tools.zip &&     mv cmdline-tools /opt/android-sdk/cmdline-tools/latest &&     rm cmdline-tools.zip
+#12 [10/26] RUN mkdir -p /opt/flutter/bin/cache/artifacts/engine &&     cd /opt/flutter/bin/cache/artifacts/engine &&     for dir in android-arm-profile android-arm-release android-arm64-profile android-arm64-release android-x64-profile android-x64-release; do         if [ -d "$dir/linux-x64" ]; then             ln -s linux-x64 "$dir/linux-arm64" 2>/dev/null || true;         fi     done
 #12 CACHED
 
-#13 [ 8/16] WORKDIR /tmp/template
+#13 [ 3/26] RUN dpkg --add-architecture amd64 &&     sed -i 's/deb http/deb [arch=arm64] http/g' /etc/apt/sources.list &&     echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list &&     echo "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list &&     echo "deb [arch=amd64] http://security.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list &&     apt-get update && apt-get install -y --no-install-recommends     libc6:amd64     curl git unzip xz-utils zip     openjdk-17-jdk-headless     wget ca-certificates     libglu1-mesa     && rm -rf /var/lib/apt/lists/*     && echo 'insecure' > /root/.curlrc     && echo 'check_certificate = off' > /root/.wgetrc     && cp /opt/corporate-ca-bundle.pem /usr/local/share/ca-certificates/corporate-ca.crt     && update-ca-certificates     && cat /opt/corporate-ca-bundle.pem >> /etc/ssl/certs/ca-certificates.crt     && (keytool -importcert -noprompt -trustcacerts -alias corporate-ca-1 -file /opt/corporate-ca-bundle.pem -keystore /etc/ssl/certs/java/cacerts -storepass changeit || true)     && (keytool -importcert -noprompt -trustcacerts -alias corporate-ca-2 -file /opt/corporate-ca-bundle.pem -keystore /usr/lib/jvm/java-17-openjdk-arm64/lib/security/cacerts -storepass changeit || true)
 #13 CACHED
 
-#14 [ 9/16] RUN flutter create --platforms=android --org br.mp.ac.cadeia cadeia_tmp
+#14 [ 9/26] RUN flutter config --no-analytics &&     flutter config --no-cli-animations &&     (flutter precache --android || echo "⚠️  Precache parcial")
 #14 CACHED
 
-#15 [ 5/16] RUN git clone --depth 1 --branch 3.27.0     https://github.com/flutter/flutter.git /opt/flutter
+#15 [ 6/26] RUN git clone --depth 1 --branch 3.27.0     https://github.com/flutter/flutter.git /opt/flutter
 #15 CACHED
 
-#16 [11/16] RUN cp -r /tmp/template/cadeia_tmp/android ./android
+#16 [ 5/26] RUN yes | sdkmanager --licenses > /dev/null 2>&1 &&     sdkmanager         "platform-tools"         "platforms;android-35"         "build-tools;35.0.0"
 #16 CACHED
 
-#17 [12/16] COPY . .
-#17 DONE 0.0s
+#17 [ 2/26] COPY certs/ca-bundle.pem /opt/corporate-ca-bundle.pem
+#17 CACHED
 
-#18 [13/16] RUN mkdir -p assets/images assets/icons
-#18 DONE 0.1s
+#18 [ 7/26] RUN ENGINE_REV="83bacfc52569459a4a654727cad2546820cb0d6a" &&     mkdir -p /opt/flutter/bin/cache &&     wget --no-check-certificate -q         "https://storage.googleapis.com/flutter_infra_release/flutter/${ENGINE_REV}/dart-sdk-linux-arm64.zip"         -O /tmp/dart-sdk.zip &&     unzip -q /tmp/dart-sdk.zip -d /opt/flutter/bin/cache/ &&     rm /tmp/dart-sdk.zip &&     echo -n "${ENGINE_REV}" > /opt/flutter/bin/cache/dart-sdk.stamp &&     echo "✅ Dart SDK pré-baixado com sucesso"
+#18 CACHED
 
-#19 [14/16] RUN cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-#19 DONE 0.1s
+#19 [12/26] RUN FLUTTER_SUPPRESS_ANALYTICS=true flutter create --offline --platforms=android --org br.mp.ac.cadeia cadeia_tmp || true
+#19 CACHED
 
-#20 [15/16] RUN mkdir -p android/app &&     echo "-dontwarn com.google.mlkit.vision.text.**" > android/app/proguard-rules.pro
-#20 DONE 0.2s
+#20 [15/26] RUN cp -r /tmp/template/cadeia_tmp/android ./android
+#20 CACHED
 
-#21 [16/16] RUN flutter pub get &&     flutter build apk --release --no-tree-shake-icons
-#21 0.120    Woah! You appear to be trying to run flutter as root.
-#21 0.120    We strongly recommend running the flutter tool without superuser privileges.
-#21 0.120   /
-#21 0.120 📎
-#21 0.345 Resolving dependencies...
-#21 1.746 Downloading packages...
-#21 3.234 + archive 3.6.1 (4.0.9 available)
-#21 3.234 + async 2.11.0 (2.13.1 available)
-#21 3.234 + boolean_selector 2.1.1 (2.1.2 available)
-#21 3.234 + camera 0.11.2 (0.12.0+2 available)
-#21 3.234 + camera_android_camerax 0.6.17 (0.7.4+1 available)
-#21 3.234 + camera_avfoundation 0.9.21+1 (0.10.2 available)
-#21 3.234 + camera_platform_interface 2.10.0 (2.13.1 available)
-#21 3.234 + camera_web 0.3.5 (0.3.5+4 available)
-#21 3.234 + characters 1.3.0 (1.4.1 available)
-#21 3.234 + clock 1.1.1 (1.1.2 available)
-#21 3.234 + collection 1.19.0 (1.19.1 available)
-#21 3.234 + cross_file 0.3.4+2 (0.3.5+4 available)
-#21 3.234 + crypto 3.0.7
-#21 3.234 + cupertino_icons 1.0.8 (1.0.9 available)
-#21 3.234 + fake_async 1.3.1 (1.3.3 available)
-#21 3.234 + ffi 2.1.3 (2.2.0 available)
-#21 3.234 + file 7.0.1
-#21 3.234 + fixnum 1.1.1
-#21 3.234 + flutter 0.0.0 from sdk flutter
-#21 3.234 + flutter_lints 4.0.0 (6.0.0 available)
-#21 3.234 + flutter_plugin_android_lifecycle 2.0.29 (2.0.35 available)
-#21 3.234 + flutter_test 0.0.0 from sdk flutter
-#21 3.234 + flutter_web_plugins 0.0.0 from sdk flutter
-#21 3.234 + geolocator 12.0.0 (14.0.3 available)
-#21 3.234 + geolocator_android 4.6.2 (5.0.3 available)
-#21 3.234 + geolocator_apple 2.3.14
-#21 3.234 + geolocator_platform_interface 4.2.8
-#21 3.234 + geolocator_web 4.0.0 (4.1.4 available)
-#21 3.234 + geolocator_windows 0.2.5
-#21 3.234 + google_mlkit_commons 0.9.0 (0.12.0 available)
-#21 3.234 + google_mlkit_text_recognition 0.14.0 (0.16.0 available)
-#21 3.234 + image 4.3.0 (4.9.1 available)
-#21 3.234 + intl 0.19.0 (0.20.3 available)
-#21 3.234 + leak_tracker 10.0.7 (11.0.2 available)
-#21 3.234 + leak_tracker_flutter_testing 3.0.8 (3.0.10 available)
-#21 3.234 + leak_tracker_testing 3.0.1 (3.0.2 available)
-#21 3.234 + lints 4.0.0 (6.1.0 available)
-#21 3.234 + matcher 0.12.16+1 (0.12.20 available)
-#21 3.234 + material_color_utilities 0.11.1 (0.13.0 available)
-#21 3.234 + meta 1.15.0 (1.19.0 available)
-#21 3.234 + mime 1.0.6 (2.0.0 available)
-#21 3.234 + mobile_scanner 5.2.3 (7.3.0 available)
-#21 3.234 + path 1.9.0 (1.9.1 available)
-#21 3.234 + path_provider 2.1.5 (2.1.6 available)
-#21 3.234 + path_provider_android 2.2.17 (2.3.1 available)
-#21 3.234 + path_provider_foundation 2.4.1 (2.6.0 available)
-#21 3.234 + path_provider_linux 2.2.1 (2.2.2 available)
-#21 3.234 + path_provider_platform_interface 2.1.2 (2.1.3 available)
-#21 3.234 + path_provider_windows 2.3.0
-#21 3.234 + permission_handler 11.4.0 (12.0.3 available)
-#21 3.234 + permission_handler_android 12.1.0 (13.0.1 available)
-#21 3.234 + permission_handler_apple 9.4.10
-#21 3.234 + permission_handler_html 0.1.3+5
-#21 3.234 + permission_handler_platform_interface 4.3.0
-#21 3.234 + permission_handler_windows 0.2.1
-#21 3.234 + petitparser 6.0.2 (7.0.2 available)
-#21 3.234 + platform 3.1.6
-#21 3.234 + plugin_platform_interface 2.1.8
-#21 3.234 + share_plus 9.0.0 (13.2.1 available)
-#21 3.234 + share_plus_platform_interface 4.0.0 (7.1.0 available)
-#21 3.234 + sky_engine 0.0.0 from sdk flutter
-#21 3.234 + source_span 1.10.0 (1.10.2 available)
-#21 3.234 + sqflite 2.4.1 (2.4.3 available)
-#21 3.234 + sqflite_android 2.4.0 (2.4.3 available)
-#21 3.234 + sqflite_common 2.5.4+6 (2.5.11 available)
-#21 3.234 + sqflite_darwin 2.4.1+1 (2.4.3+1 available)
-#21 3.234 + sqflite_platform_interface 2.4.0 (2.4.1 available)
-#21 3.234 + stack_trace 1.12.0 (1.12.1 available)
-#21 3.234 + stream_channel 2.1.2 (2.1.4 available)
-#21 3.234 + stream_transform 2.1.1
-#21 3.234 + string_scanner 1.3.0 (1.4.1 available)
-#21 3.234 + synchronized 3.3.0+3 (3.4.1 available)
-#21 3.234 + term_glyph 1.2.1 (1.2.2 available)
-#21 3.234 + test_api 0.7.3 (0.7.13 available)
-#21 3.234 + typed_data 1.4.0
-#21 3.234 + url_launcher_linux 3.2.1 (3.2.2 available)
-#21 3.234 + url_launcher_platform_interface 2.3.2
-#21 3.234 + url_launcher_web 2.4.1 (2.4.3 available)
-#21 3.234 + url_launcher_windows 3.1.4 (3.1.5 available)
-#21 3.234 + uuid 4.6.0
-#21 3.234 + vector_math 2.1.4 (2.4.0 available)
-#21 3.234 + vm_service 14.3.0 (15.2.0 available)
-#21 3.234 + web 0.5.1 (1.1.1 available)
-#21 3.234 + win32 5.10.1 (6.3.0 available)
-#21 3.234 + xdg_directories 1.1.0
-#21 3.234 + xml 6.5.0 (7.0.1 available)
-#21 3.235 Changed 86 dependencies!
-#21 3.235 64 packages have newer versions incompatible with dependency constraints.
-#21 3.235 Try `flutter pub outdated` for more information.
-#21 3.412    Woah! You appear to be trying to run flutter as root.
-#21 3.412    We strongly recommend running the flutter tool without superuser privileges.
-#21 3.412   /
-#21 3.412 📎
-#21 3.646 
-#21 3.662 Running Gradle task 'assembleRelease'...                        
-#21 153.9 Checking the license for package Android SDK Build-Tools 33.0.1 in /opt/android-sdk/licenses
-#21 153.9 License for package Android SDK Build-Tools 33.0.1 accepted.
-#21 153.9 Preparing "Install Android SDK Build-Tools 33.0.1 v.33.0.1".
-#21 156.4 "Install Android SDK Build-Tools 33.0.1 v.33.0.1" ready.
-#21 156.4 Installing Android SDK Build-Tools 33.0.1 in /opt/android-sdk/build-tools/33.0.1
-#21 156.4 "Install Android SDK Build-Tools 33.0.1 v.33.0.1" complete.
-#21 156.5 "Install Android SDK Build-Tools 33.0.1 v.33.0.1" finished.
-#21 156.6 Checking the license for package Android SDK Platform 34 in /opt/android-sdk/licenses
-#21 156.6 License for package Android SDK Platform 34 accepted.
-#21 156.6 Preparing "Install Android SDK Platform 34 (revision 3)".
-#21 159.1 "Install Android SDK Platform 34 (revision 3)" ready.
-#21 159.1 Installing Android SDK Platform 34 in /opt/android-sdk/platforms/android-34
-#21 159.1 "Install Android SDK Platform 34 (revision 3)" complete.
-#21 159.1 "Install Android SDK Platform 34 (revision 3)" finished.
-#21 207.7    Woah! You appear to be trying to run flutter as root.
-#21 207.7    We strongly recommend running the flutter tool without superuser privileges.
-#21 207.7   /
-#21 207.7 ????
-#21 284.0 Running Gradle task 'assembleRelease'...                          280.3s
-#21 284.5 ✓ Built build/app/outputs/flutter-apk/app-release.apk (52.4MB)
-#21 DONE 284.7s
+#21 [16/26] COPY . .
+#21 DONE 0.0s
 
-#22 exporting to image
-#22 exporting layers
-#22 exporting layers 15.3s done
-#22 writing image sha256:d0b020002eaaeaf77bdcbd004984f1ebed6fc4e9d6098db96b886efa084eedc7 done
-#22 naming to docker.io/library/cadeia-apk-builder done
-#22 DONE 15.3s
+#22 [17/26] RUN mkdir -p assets/images assets/icons
+#22 DONE 0.1s
+
+#23 [18/26] RUN cat > android/app/src/main/AndroidManifest.xml << 'EOF'
+#23 DONE 0.1s
+
+#24 [19/26] RUN mkdir -p android/app &&     echo "-dontwarn com.google.mlkit.vision.text.**" > android/app/proguard-rules.pro
+#24 DONE 0.1s
+
+#25 [20/26] RUN GRADLE_VERSION="8.3" &&     wget --no-check-certificate -q         "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"         -O /tmp/gradle-${GRADLE_VERSION}-bin.zip &&     mkdir -p android/gradle/wrapper &&     echo "distributionBase=GRADLE_USER_HOME" > android/gradle/wrapper/gradle-wrapper.properties &&     echo "distributionPath=wrapper/dists" >> android/gradle.properties &&     echo "distributionUrl=file\:///tmp/gradle-${GRADLE_VERSION}-bin.zip" >> android/gradle/wrapper/gradle-wrapper.properties &&     echo "zipStoreBase=GRADLE_USER_HOME" >> android/gradle/wrapper/gradle-wrapper.properties &&     echo "zipStorePath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
+#25 DONE 51.7s

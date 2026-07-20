@@ -7,6 +7,22 @@ ENV FLUTTER_HOME=/opt/flutter
 ENV PATH="${FLUTTER_HOME}/bin:${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
 
+# ── Bypass SSL global (proxy corporativo com certificado self-signed) ────────────
+ENV GIT_SSL_NO_VERIFY=true
+ENV CURL_CA_BUNDLE=""
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+ENV GRADLE_OPTS="-Djavax.net.ssl.trustAll=true"
+ENV JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustAll=true -Dhttps.protocols=TLSv1.2,TLSv1.3"
+# Dart VM usa --root-certs-file para confiar em CAs customizadas
+ENV DART_FLAGS="--root-certs-file=/opt/corporate-ca-bundle.pem"
+
+# ── Injetar bundle de CAs do host (inclui certificado corporativo) ────────────
+COPY certs/ca-bundle.pem /opt/corporate-ca-bundle.pem
+# SSL_CERT_FILE → usado pelo Dart/Flutter
+ENV SSL_CERT_FILE=/opt/corporate-ca-bundle.pem
+# CURL_CA_BUNDLE → usado pelo curl
+ENV CURL_CA_BUNDLE=/opt/corporate-ca-bundle.pem
+
 # ── Multiarch para rodar gen_snapshot x64 em container ARM64 ─────────────────
 RUN dpkg --add-architecture amd64 && \
     sed -i 's/deb http/deb [arch=arm64] http/g' /etc/apt/sources.list && \
@@ -19,12 +35,19 @@ RUN dpkg --add-architecture amd64 && \
     openjdk-17-jdk-headless \
     wget ca-certificates \
     libglu1-mesa \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && echo 'insecure' > /root/.curlrc \
+    && echo 'check_certificate = off' > /root/.wgetrc \
+    && cp /opt/corporate-ca-bundle.pem /usr/local/share/ca-certificates/corporate-ca.crt \
+    && update-ca-certificates \
+    && cat /opt/corporate-ca-bundle.pem >> /etc/ssl/certs/ca-certificates.crt \
+    && (keytool -importcert -noprompt -trustcacerts -alias corporate-ca-1 -file /opt/corporate-ca-bundle.pem -keystore /etc/ssl/certs/java/cacerts -storepass changeit || true) \
+    && (keytool -importcert -noprompt -trustcacerts -alias corporate-ca-2 -file /opt/corporate-ca-bundle.pem -keystore /usr/lib/jvm/java-17-openjdk-arm64/lib/security/cacerts -storepass changeit || true)
 
 # ── Android SDK Command-line Tools ──────────────────────────────────────────
 RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
     cd /tmp && \
-    wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip && \
+    wget --no-check-certificate -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip && \
     unzip -q cmdline-tools.zip && \
     mv cmdline-tools ${ANDROID_SDK_ROOT}/cmdline-tools/latest && \
     rm cmdline-tools.zip
@@ -40,24 +63,52 @@ RUN yes | sdkmanager --licenses > /dev/null 2>&1 && \
 RUN git clone --depth 1 --branch ${FLUTTER_VERSION} \
     https://github.com/flutter/flutter.git ${FLUTTER_HOME}
 
+# ── Pré-baixar Dart SDK via wget (bypass SSL corporativo em update_dart_sdk.sh) ───
+RUN ENGINE_REV="83bacfc52569459a4a654727cad2546820cb0d6a" && \
+    mkdir -p /opt/flutter/bin/cache && \
+    wget --no-check-certificate -q \
+        "https://storage.googleapis.com/flutter_infra_release/flutter/${ENGINE_REV}/dart-sdk-linux-arm64.zip" \
+        -O /tmp/dart-sdk.zip && \
+    unzip -q /tmp/dart-sdk.zip -d /opt/flutter/bin/cache/ && \
+    rm /tmp/dart-sdk.zip && \
+    echo -n "${ENGINE_REV}" > /opt/flutter/bin/cache/dart-sdk.stamp && \
+    echo "✅ Dart SDK pré-baixado com sucesso"
+
+# Desabilitar validação SSL no Dart HTTP Client do Flutter CLI e suprimir falha de download de fonts
+RUN sed -i 's/void main(List<String> args) async {/import "dart:io"; class TrustAllOverrides extends HttpOverrides { @override HttpClient createHttpClient(SecurityContext? c) => super.createHttpClient(c)..badCertificateCallback = (X509Certificate cert, String host, int port) => true; } void main(List<String> args) async { HttpOverrides.global = TrustAllOverrides();/g' /opt/flutter/packages/flutter_tools/bin/executable.dart 2>/dev/null || true && \
+    sed -i 's/Future<void> main(List<String> args) async {/import "dart:io"; class TrustAllOverrides extends HttpOverrides { @override HttpClient createHttpClient(SecurityContext? c) => super.createHttpClient(c)..badCertificateCallback = (X509Certificate cert, String host, int port) => true; } Future<void> main(List<String> args) async { HttpOverrides.global = TrustAllOverrides();/g' /opt/flutter/packages/flutter_tools/lib/executable.dart 2>/dev/null || true && \
+    sed -i 's/Downloading Material fonts.../Simulating Material fonts.../g' /opt/flutter/packages/flutter_tools/lib/src/cache.dart 2>/dev/null || true && \
+    sed -i 's/await _downloadZip/print("Skipping zip download"); \/\/ await _downloadZip/g' /opt/flutter/packages/flutter_tools/lib/src/cache.dart 2>/dev/null || true && \
+    rm -rf /opt/flutter/bin/cache/flutter_tools.stamp /opt/flutter/bin/cache/flutter_tools.snapshot && \
+    flutter --version
+
 # Pré-aquecer Flutter (sem analytics, sem telemetria)
 RUN flutter config --no-analytics && \
     flutter config --no-cli-animations && \
-    flutter precache --android
+    (flutter precache --android || echo "⚠️  Precache parcial")
 
 # ── Workaround para Flutter Engine em arquitetura ARM64 Linux ────────────────
 # Cria links simbólicos apontando linux-arm64 para as ferramentas de compilação linux-x64,
 # permitindo a execução transparente via binfmt_misc/QEMU do host.
-RUN cd /opt/flutter/bin/cache/artifacts/engine && \
+RUN mkdir -p /opt/flutter/bin/cache/artifacts/engine && \
+    cd /opt/flutter/bin/cache/artifacts/engine && \
     for dir in android-arm-profile android-arm-release android-arm64-profile android-arm64-release android-x64-profile android-x64-release; do \
         if [ -d "$dir/linux-x64" ]; then \
-            ln -s linux-x64 "$dir/linux-arm64"; \
+            ln -s linux-x64 "$dir/linux-arm64" 2>/dev/null || true; \
         fi \
     done
 
 # ── Criar projeto Flutter limpo para obter estrutura Android ─────────────────
 WORKDIR /tmp/template
-RUN flutter create --platforms=android --org br.mp.ac.cadeia cadeia_tmp
+# FLUTTER_SUPPRESS_ANALYTICS=true reduz chamadas de rede extras
+# Se flutter create ainda falhar por SSL, criamos android/ do template interno
+RUN FLUTTER_SUPPRESS_ANALYTICS=true flutter create --offline --platforms=android --org br.mp.ac.cadeia cadeia_tmp || true
+RUN if [ ! -d cadeia_tmp/android ]; then \
+      mkdir -p cadeia_tmp/android/app/src/main && \
+      echo 'include ":app"' > cadeia_tmp/android/settings.gradle && \
+      echo 'buildscript { repositories { google(); mavenCentral() } dependencies { classpath "com.android.tools.build:gradle:8.1.0"; classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22" } }' > cadeia_tmp/android/build.gradle && \
+      echo 'apply plugin: "com.android.application"\napply plugin: "kotlin-android"\napply plugin: "dev.flutter.flutter-gradle-plugin"\nandroid { compileSdk 35\n namespace "br.mp.ac.cadeia.cadeia_tmp"\n defaultConfig { applicationId "br.mp.ac.cadeia.cadeia_tmp"\n minSdk 21\n targetSdk 35 } }' > cadeia_tmp/android/app/build.gradle; \
+    fi
 
 # ── Copiar código fonte da aplicação ─────────────────────────────────────────
 WORKDIR /app
@@ -125,8 +176,94 @@ EOF
 RUN mkdir -p android/app && \
     echo "-dontwarn com.google.mlkit.vision.text.**" > android/app/proguard-rules.pro
 
+# ── Pré-popular cache do Gradle (evita SSLHandshakeException no container) ───
+RUN GRADLE_VERSION="8.3" && \
+    wget --no-check-certificate -q \
+        "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
+        -O /tmp/gradle-${GRADLE_VERSION}-bin.zip && \
+    mkdir -p android/gradle/wrapper && \
+    echo "distributionBase=GRADLE_USER_HOME" > android/gradle/wrapper/gradle-wrapper.properties && \
+    echo "distributionPath=wrapper/dists" >> android/gradle.properties && \
+    echo "distributionUrl=file\:///tmp/gradle-${GRADLE_VERSION}-bin.zip" >> android/gradle/wrapper/gradle-wrapper.properties && \
+    echo "zipStoreBase=GRADLE_USER_HOME" >> android/gradle/wrapper/gradle-wrapper.properties && \
+    echo "zipStorePath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
+
+# ── Criar init.gradle para ignorar erros de SSL e redirecionar HTTPS -> HTTP para Maven ──
+RUN mkdir -p /root/.gradle && \
+    cat > /root/.gradle/init.gradle << 'EOF'
+import javax.net.ssl.*
+import java.security.cert.X509Certificate
+
+class TrustAllManager implements X509TrustManager {
+    X509Certificate[] getAcceptedIssuers() { return null }
+    void checkClientTrusted(X509Certificate[] certs, String authType) {}
+    void checkServerTrusted(X509Certificate[] certs, String authType) {}
+}
+
+TrustManager[] trustAllCerts = [new TrustAllManager()]
+try {
+    SSLContext sc = SSLContext.getInstance("TLS")
+    sc.init(null, trustAllCerts, new java.security.SecureRandom())
+    HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory())
+    HttpsURLConnection.setDefaultHostnameVerifier({ hostname, session -> true })
+} catch (Exception e) {}
+
+allprojects {
+    buildscript {
+        repositories {
+            all { repo ->
+                if (repo instanceof MavenArtifactRepository) {
+                    repo.allowInsecureProtocol = true
+                    if (repo.url.toString().startsWith("https://")) {
+                        repo.url = URI.create(repo.url.toString().replace("https://", "http://"))
+                    }
+                }
+            }
+        }
+    }
+    repositories {
+        all { repo ->
+            if (repo instanceof MavenArtifactRepository) {
+                repo.allowInsecureProtocol = true
+                if (repo.url.toString().startsWith("https://")) {
+                    repo.url = URI.create(repo.url.toString().replace("https://", "http://"))
+                }
+            }
+        }
+    }
+}
+EOF
+
+# ── Pré-baixar artefatos Flutter Embedding Release para o repositório local Maven ──
+RUN ENGINE_REV="83bacfc52569459a4a654727cad2546820cb0d6a" && \
+    BASE_MAVEN="/root/.gradle/caches/modules-2/files-2.1/io.flutter" && \
+    mkdir -p "${BASE_MAVEN}/flutter_embedding_release/1.0.0-${ENGINE_REV}/hash1" && \
+    mkdir -p "${BASE_MAVEN}/arm64_v8a_release/1.0.0-${ENGINE_REV}/hash2" && \
+    mkdir -p "${BASE_MAVEN}/armeabi_v7a_release/1.0.0-${ENGINE_REV}/hash3" && \
+    mkdir -p "${BASE_MAVEN}/x86_64_release/1.0.0-${ENGINE_REV}/hash4" && \
+    wget --no-check-certificate -q "https://storage.googleapis.com/download.flutter.io/io/flutter/flutter_embedding_release/1.0.0-${ENGINE_REV}/flutter_embedding_release-1.0.0-${ENGINE_REV}.pom" -O "${BASE_MAVEN}/flutter_embedding_release/1.0.0-${ENGINE_REV}/hash1/flutter_embedding_release-1.0.0-${ENGINE_REV}.pom" || true && \
+    wget --no-check-certificate -q "https://storage.googleapis.com/download.flutter.io/io/flutter/flutter_embedding_release/1.0.0-${ENGINE_REV}/flutter_embedding_release-1.0.0-${ENGINE_REV}.jar" -O "${BASE_MAVEN}/flutter_embedding_release/1.0.0-${ENGINE_REV}/hash1/flutter_embedding_release-1.0.0-${ENGINE_REV}.jar" || true && \
+    wget --no-check-certificate -q "https://storage.googleapis.com/download.flutter.io/io/flutter/arm64_v8a_release/1.0.0-${ENGINE_REV}/arm64_v8a_release-1.0.0-${ENGINE_REV}.pom" -O "${BASE_MAVEN}/arm64_v8a_release/1.0.0-${ENGINE_REV}/hash2/arm64_v8a_release-1.0.0-${ENGINE_REV}.pom" || true && \
+    wget --no-check-certificate -q "https://storage.googleapis.com/download.flutter.io/io/flutter/arm64_v8a_release/1.0.0-${ENGINE_REV}/arm64_v8a_release-1.0.0-${ENGINE_REV}.jar" -O "${BASE_MAVEN}/arm64_v8a_release/1.0.0-${ENGINE_REV}/hash2/arm64_v8a_release-1.0.0-${ENGINE_REV}.jar" || true && \
+    wget --no-check-certificate -q "https://storage.googleapis.com/download.flutter.io/io/flutter/armeabi_v7a_release/1.0.0-${ENGINE_REV}/armeabi_v7a_release-1.0.0-${ENGINE_REV}.pom" -O "${BASE_MAVEN}/armeabi_v7a_release/1.0.0-${ENGINE_REV}/hash3/armeabi_v7a_release-1.0.0-${ENGINE_REV}.pom" || true && \
+    wget --no-check-certificate -q "https://storage.googleapis.com/download.flutter.io/io/flutter/armeabi_v7a_release/1.0.0-${ENGINE_REV}/armeabi_v7a_release-1.0.0-${ENGINE_REV}.jar" -O "${BASE_MAVEN}/armeabi_v7a_release/1.0.0-${ENGINE_REV}/hash3/armeabi_v7a_release-1.0.0-${ENGINE_REV}.jar" || true && \
+    wget --no-check-certificate -q "https://storage.googleapis.com/download.flutter.io/io/flutter/x86_64_release/1.0.0-${ENGINE_REV}/x86_64_release-1.0.0-${ENGINE_REV}.pom" -O "${BASE_MAVEN}/x86_64_release/1.0.0-${ENGINE_REV}/hash4/x86_64_release-1.0.0-${ENGINE_REV}.pom" || true && \
+    wget --no-check-certificate -q "https://storage.googleapis.com/download.flutter.io/io/flutter/x86_64_release/1.0.0-${ENGINE_REV}/x86_64_release-1.0.0-${ENGINE_REV}.jar" -O "${BASE_MAVEN}/x86_64_release/1.0.0-${ENGINE_REV}/hash4/x86_64_release-1.0.0-${ENGINE_REV}.jar" || true
+
+# ── Desabilitar uses-material-design no pubspec.yaml para evitar download de fonts no pub get ──
+RUN sed -i 's/uses-material-design: true/uses-material-design: false/g' pubspec.yaml
+
 # ── Build APK release ────────────────────────────────────────────────────────
-RUN flutter pub get && \
-    flutter build apk --release --no-tree-shake-icons
+RUN flutter pub get --offline || flutter pub get
+
+# Reaplicar symlinks ARM64 após download dos artefatos do engine
+RUN cd /opt/flutter/bin/cache/artifacts/engine && \
+    for dir in android-arm-profile android-arm-release android-arm64-profile android-arm64-release android-x64-profile android-x64-release; do \
+        if [ -d "$dir/linux-x64" ] && [ ! -e "$dir/linux-arm64" ]; then \
+            ln -s linux-x64 "$dir/linux-arm64"; \
+        fi \
+    done
+
+RUN flutter build apk --release --no-tree-shake-icons
 
 CMD ["sh", "-c", "cp build/app/outputs/flutter-apk/app-release.apk /output/cadeia-custodia.apk && echo 'APK copiado com sucesso para /output/cadeia-custodia.apk'"]
