@@ -98,23 +98,10 @@ RUN mkdir -p /opt/flutter/bin/cache/artifacts/engine && \
         fi \
     done
 
-# ── Criar projeto Flutter limpo para obter estrutura Android ─────────────────
-WORKDIR /tmp/template
-# FLUTTER_SUPPRESS_ANALYTICS=true reduz chamadas de rede extras
-# Se flutter create ainda falhar por SSL, criamos android/ do template interno
-RUN FLUTTER_SUPPRESS_ANALYTICS=true flutter create --offline --platforms=android --org br.mp.ac.cadeia cadeia_tmp || true
-RUN if [ ! -d cadeia_tmp/android ]; then \
-      mkdir -p cadeia_tmp/android/app/src/main && \
-      echo 'include ":app"' > cadeia_tmp/android/settings.gradle && \
-      echo 'buildscript { repositories { google(); mavenCentral() } dependencies { classpath "com.android.tools.build:gradle:8.1.0"; classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.22" } }' > cadeia_tmp/android/build.gradle && \
-      echo 'apply plugin: "com.android.application"\napply plugin: "kotlin-android"\napply plugin: "dev.flutter.flutter-gradle-plugin"\nandroid { compileSdk 35\n namespace "br.mp.ac.cadeia.cadeia_tmp"\n defaultConfig { applicationId "br.mp.ac.cadeia.cadeia_tmp"\n minSdk 21\n targetSdk 35 } }' > cadeia_tmp/android/app/build.gradle; \
-    fi
-
 # ── Copiar código fonte da aplicação ─────────────────────────────────────────
 WORKDIR /app
-
-# Copia estrutura Android gerada
-RUN cp -r /tmp/template/cadeia_tmp/android ./android
+# O projeto já contém android/ completo com Flutter embedding v2 (MainActivity.kt,
+# AndroidManifest.xml, build.gradle). Nenhuma geração via flutter create necessária.
 
 # Copia fonte do projeto
 COPY . .
@@ -122,71 +109,21 @@ COPY . .
 # ── Garantir diretórios de assets ────────────────────────────────────────────
 RUN mkdir -p assets/images assets/icons
 
-# ── Ajustar AndroidManifest com permissões necessárias ───────────────────────
-RUN cat > android/app/src/main/AndroidManifest.xml << 'EOF'
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Câmera -->
-    <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-feature android:name="android.hardware.camera" android:required="false"/>
-    <!-- GPS -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-    <!-- Armazenamento -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-
-    <application
-        android:label="Cadeia de Custódia"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:requestLegacyExternalStorage="true">
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-    </application>
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.VIEW"/>
-            <data android:scheme="https"/>
-        </intent>
-    </queries>
-</manifest>
-EOF
+# AndroidManifest.xml já está em android/app/src/main/AndroidManifest.xml com
+# todas as permissões necessárias e embedding v2 declarado.
 
 # ── Regras do Proguard para evitar erros de R8 no ML Kit ─────────────────────
 RUN mkdir -p android/app && \
     echo "-dontwarn com.google.mlkit.vision.text.**" > android/app/proguard-rules.pro
 
 # ── Pré-popular cache do Gradle (evita SSLHandshakeException no container) ───
-RUN GRADLE_VERSION="8.3" && \
+RUN GRADLE_VERSION="9.1.0" && \
     wget --no-check-certificate -q \
-        "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
-        -O /tmp/gradle-${GRADLE_VERSION}-bin.zip && \
+        "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-all.zip" \
+        -O /tmp/gradle-${GRADLE_VERSION}-all.zip && \
     mkdir -p android/gradle/wrapper && \
-    echo "distributionBase=GRADLE_USER_HOME" > android/gradle/wrapper/gradle-wrapper.properties && \
-    echo "distributionPath=wrapper/dists" >> android/gradle.properties && \
-    echo "distributionUrl=file\:///tmp/gradle-${GRADLE_VERSION}-bin.zip" >> android/gradle/wrapper/gradle-wrapper.properties && \
-    echo "zipStoreBase=GRADLE_USER_HOME" >> android/gradle/wrapper/gradle-wrapper.properties && \
-    echo "zipStorePath=wrapper/dists" >> android/gradle/wrapper/gradle-wrapper.properties
+    printf "distributionBase=GRADLE_USER_HOME\ndistributionPath=wrapper/dists\nzipStoreBase=GRADLE_USER_HOME\nzipStorePath=wrapper/dists\ndistributionUrl=file\\:///tmp/gradle-${GRADLE_VERSION}-all.zip\n" \
+        > android/gradle/wrapper/gradle-wrapper.properties
 
 # ── Criar init.gradle para ignorar erros de SSL e redirecionar HTTPS -> HTTP para Maven ──
 RUN mkdir -p /root/.gradle && \
